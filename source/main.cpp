@@ -8,6 +8,7 @@
 
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
 #define FieldDescriptor uint32_t
+PadState pad;
 
 //Common
 Thread t0;
@@ -186,17 +187,18 @@ void CheckIfGameRunning(void*) {
 
 //Check for input outside of FPS limitations
 void CheckButtons(void*) {
-	static uint64_t kHeld = hidKeysHeld(CONTROLLER_P1_AUTO);
+	padInitializeAny(&pad);
+	static uint64_t kHeld = padGetButtons(&pad); // hidKeysHeld(CONTROLLER_P1_AUTO);
 	while (threadexit == false) {
-		hidScanInput();
-		kHeld = hidKeysHeld(CONTROLLER_P1_AUTO);
-		if ((kHeld & KEY_ZR) && (kHeld & KEY_R)) {
-			if (kHeld & KEY_DDOWN) {
+		padUpdate(&pad);
+		kHeld = padGetButtons(&pad);
+		if ((kHeld & HidNpadButton_ZR) && (kHeld & HidNpadButton_R)) {
+			if (kHeld & HidNpadButton_Down) {
 				TeslaFPS = 1;
 				refreshrate = 1;
 				systemtickfrequency = 19200000;
 			}
-			else if (kHeld & KEY_DUP) {
+			else if (kHeld & HidNpadButton_Up) {
 				TeslaFPS = 5;
 				refreshrate = 5;
 				systemtickfrequency = 3840000;
@@ -416,8 +418,8 @@ public:
 		snprintf(FPSavg_c, sizeof FPSavg_c, "%2.1f", FPSavg);
 		
 	}
-	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if ((keysHeld & KEY_LSTICK) && (keysHeld & KEY_RSTICK)) {
+	virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
 			EndFPSCounterThread();
 			tsl::goBack();
 			return true;
@@ -432,7 +434,7 @@ public:
     FullOverlay() { }
 
     virtual tsl::elm::Element* createUI() override {
-		auto rootFrame = new tsl::elm::OverlayFrame("Status Monitor", APP_VERSION);
+		auto rootFrame = new tsl::elm::OverlayFrame("Full mode", APP_VERSION);
 
 		auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
 			
@@ -547,8 +549,8 @@ public:
 		snprintf(FPS_var_compressed_c, sizeof FPS_var_compressed_c, "%u\n%2.2f", FPS, FPSavg);
 		
 	}
-	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if ((keysHeld & KEY_LSTICK) && (keysHeld & KEY_RSTICK)) {
+	virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
 			CloseThreads();
 			tsl::goBack();
 			return true;
@@ -637,8 +639,8 @@ public:
 		else snprintf(Variables, sizeof Variables, "%s\n%s\n%s\n%s\n%s", CPU_compressed_c, GPU_Load_c, RAM_var_compressed_c, skin_temperature_c, Rotation_SpeedLevel_c);
 
 	}
-	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if ((keysHeld & KEY_LSTICK) && (keysHeld & KEY_RSTICK)) {
+	virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
 			CloseThreads();
 			tsl::goBack();
 			return true;
@@ -670,7 +672,7 @@ public:
     CustomOverlay() { }
 
     virtual tsl::elm::Element* createUI() override {
-		auto rootFrame = new tsl::elm::OverlayFrame("Status Monitor", APP_VERSION);
+		auto rootFrame = new tsl::elm::OverlayFrame("Mini Overlay", APP_VERSION);
 
 		auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
 			
@@ -757,7 +759,7 @@ public:
 		
 	}
 	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if ((keysHeld & KEY_LSTICK) && (keysHeld & KEY_RSTICK)) {
+		if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_RSTICK)) {
 			CloseThreads();
 			tsl::goBack();
 			return true;
@@ -773,12 +775,12 @@ public:
     MainMenu() { }
 
     virtual tsl::elm::Element* createUI() override {
-		auto rootFrame = new tsl::elm::OverlayFrame("Status Monitor", APP_VERSION);
+		auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
 		auto list = new tsl::elm::List();
 		
 		auto Full = new tsl::elm::ListItem("Full");
 		Full->setClickListener([](uint64_t keys) {
-			if (keys & KEY_A) {
+			if (keys & HidNpadButton_A) {
 				StartThreads();
 				TeslaFPS = 1;
 				refreshrate = 1;
@@ -791,7 +793,7 @@ public:
 		list->addItem(Full);
 		auto Mini = new tsl::elm::ListItem("Mini");
 		Mini->setClickListener([](uint64_t keys) {
-			if (keys & KEY_A) {
+			if (keys & HidNpadButton_A) {
 				StartThreads();
 				TeslaFPS = 1;
 				refreshrate = 1;
@@ -807,7 +809,7 @@ public:
 		if (SaltySD == true) {
 			auto comFPS = new tsl::elm::ListItem("FPS Counter");
 			comFPS->setClickListener([](uint64_t keys) {
-				if (keys & KEY_A) {
+				if (keys & HidNpadButton_A) {
 					StartFPSCounterThread();
 					TeslaFPS = 31;
 					refreshrate = 31;
@@ -824,7 +826,7 @@ public:
 #ifdef CUSTOM
 		auto Custom = new tsl::elm::ListItem("Custom");
 		Custom->setClickListener([](uint64_t keys) {
-			if (keys & KEY_A) {
+			if (keys & HidNpadButton_A) {
 				StartThreads();
 				StartBatteryThread();
 				TeslaFPS = 1;
@@ -853,8 +855,8 @@ public:
 			systemtickfrequency = 19200000;
 		}
 	}
-    virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if (keysHeld & KEY_B) {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if (keysHeld & HidNpadButton_B) {
 			tsl::goBack();
 			return true;
 		}
