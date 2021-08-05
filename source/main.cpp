@@ -1,7 +1,8 @@
 #define TESLA_INIT_IMPL
 #include <tesla.hpp>
 #include "dmntcht.h"
-
+#include "debugger.hpp"
+#include "memory_dump.hpp"
 #ifdef CUSTOM
 #include "Battery.hpp"
 #endif
@@ -9,6 +10,10 @@
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
 #define FieldDescriptor uint32_t
 PadState pad;
+// typedef struct {
+//     u32 A = 0, B = 0;                                   ///< UniquePadId
+// } Breeze_state;
+// Breeze_state Bstate = {};
 
 //Common
 Thread t0;
@@ -25,6 +30,7 @@ bool threadexit2 = false;
 bool Atmosphere_present = false;
 uint64_t refreshrate = 1;
 FanController g_ICon;
+
 
 //Mini mode
 char Variables[672];
@@ -192,6 +198,7 @@ void CheckButtons(void*) {
 	while (threadexit == false) {
 		padUpdate(&pad);
 		kHeld = padGetButtons(&pad);
+		u64 kDown = padGetButtonsDown(&pad);
 		if ((kHeld & HidNpadButton_ZR) && (kHeld & HidNpadButton_R)) {
 			if (kHeld & HidNpadButton_Down) {
 				TeslaFPS = 1;
@@ -204,6 +211,13 @@ void CheckButtons(void*) {
 				systemtickfrequency = 3840000;
 			}
 		}
+		if ((kHeld & HidNpadButton_ZR) && (kDown & HidNpadButton_A)) {
+			Bstate.A += 2;
+		};
+		if ((kHeld & HidNpadButton_ZR) && (kDown & HidNpadButton_B)) {
+			Bstate.B += 2;
+		};
+
 		svcSleepThread(100'000'000);
 	}
 }
@@ -558,7 +572,355 @@ public:
 		return false;
 	}
 };
+// Bookmark display
+#define MAX_POINTER_DEPTH 12
+  struct pointer_chain_t
+  {
+    u64 depth = 0;
+    s64 offset[MAX_POINTER_DEPTH + 1] = {0}; // offset to address pointed by pointer
+  };
+struct bookmark_t {
+    char label[19] = {0};
+    searchType_t type;
+    pointer_chain_t pointer;
+    bool heap = true;
+    u64 offset = 0;
+    bool deleted = false;
+};
+#define NUM_bookmark 10
+char BookmarkLabels[NUM_bookmark * 20] = "";
+std::string m_edizon_dir = "/switch/EdiZon";
+std::string m_store_extension = "A";
+Debugger *m_debugger; 
+MemoryDump *m_memoryDump;
+MemoryDump *m_AttributeDumpBookmark;
+u8 m_addresslist_offset = 0;
+bool m_32bitmode = false;
+// static const std::vector<u8> dataTypeSizes = {1, 1, 2, 2, 4, 4, 8, 8, 4, 8, 8};
+DmntCheatProcessMetadata metadata;
+// char Variables[NUM_bookmark*20];
+char bookmarkfilename[200]="bookmark filename";
+void init_se_tools() {
+    if (dmntchtCheck == 1) dmntchtCheck = dmntchtInitialize();
 
+    dmntchtGetCheatProcessMetadata(&metadata);
+	u8 build_id[0x20];
+    memcpy(build_id, metadata.main_nso_build_id, 0x20);
+
+    m_debugger = new Debugger();
+
+	// check and set m_32bitmode
+
+	snprintf(bookmarkfilename, 200, "%s/%02X%02X%02X%02X%02X%02X%02X%02X.dat", EDIZON_DIR,
+                     build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+
+    m_AttributeDumpBookmark = new MemoryDump(bookmarkfilename, DumpType::ADDR, false);
+	m_memoryDump = new MemoryDump(EDIZON_DIR "/memdumpbookmark.dat", DumpType::ADDR, false);
+	return;
+
+};
+void cleanup_se_tools() {
+    // if (dmntchtCheck == 0) dmntchtExit();
+    delete m_debugger;
+	delete m_AttributeDumpBookmark;
+	delete m_memoryDump;
+	return;
+};
+static std::string _getAddressDisplayString(u64 address, Debugger *debugger, searchType_t searchType)
+{
+  char ss[200] ;
+
+  searchValue_t searchValue;
+  searchValue._u64 = debugger->peekMemory(address);
+  // start mod for address content display
+//   u16 k = searchValue._u8;
+//   if (m_searchValueFormat == FORMAT_HEX)
+//   {
+//     switch (dataTypeSizes[searchType])
+//     {
+//     case 1:
+//       ss << "0x" << std::uppercase << std::hex << k;
+//       break;
+//     case 2:
+//       ss << "0x" << std::uppercase << std::hex << searchValue._u16;
+//       break;
+//     default:
+//     case 4:
+//       ss << "0x" << std::uppercase << std::hex << searchValue._u32;
+//       break;
+//     case 8:
+//       ss << "0x" << std::uppercase << std::hex << searchValue._u64;
+//       break;
+//     }
+//   }
+//   else
+  {
+
+    // end mod
+    switch (searchType)
+    {
+    case SEARCH_TYPE_UNSIGNED_8BIT:
+        snprintf(ss, sizeof ss, "%d", searchValue._u8);
+        // ss << std::dec << static_cast<u64>(searchValue._u8);
+        break;
+    case SEARCH_TYPE_UNSIGNED_16BIT:
+		snprintf(ss, sizeof ss, "%d", searchValue._u16);
+    //   ss << std::dec << static_cast<u64>(searchValue._u16);
+      break;
+    case SEARCH_TYPE_UNSIGNED_32BIT:
+	snprintf(ss, sizeof ss, "%d", searchValue._u32);
+    //   ss << std::dec << static_cast<u64>(searchValue._u32);
+      break;
+    case SEARCH_TYPE_UNSIGNED_64BIT:
+	snprintf(ss, sizeof ss, "%ld", searchValue._u64);
+    //   ss << std::dec << static_cast<u64>(searchValue._u64);
+      break;
+    case SEARCH_TYPE_SIGNED_8BIT:
+	snprintf(ss, sizeof ss, "%d", searchValue._s8);
+    //   ss << std::dec << static_cast<s64>(searchValue._s8);
+      break;
+    case SEARCH_TYPE_SIGNED_16BIT:
+	snprintf(ss, sizeof ss, "%d", searchValue._s16);
+    //   ss << std::dec << static_cast<s64>(searchValue._s16);
+      break;
+    case SEARCH_TYPE_SIGNED_32BIT:
+	snprintf(ss, sizeof ss, "%d", searchValue._s32);
+    //   ss << std::dec << static_cast<s64>(searchValue._s32);
+      break;
+    case SEARCH_TYPE_SIGNED_64BIT:
+	snprintf(ss, sizeof ss, "%ld", searchValue._s64);
+    //   ss << std::dec << static_cast<s64>(searchValue._s64);
+      break;
+    case SEARCH_TYPE_FLOAT_32BIT:
+	snprintf(ss, sizeof ss, "%f", searchValue._f32);
+    //   ss << std::dec << searchValue._f32;
+      break;
+    case SEARCH_TYPE_FLOAT_64BIT:
+	snprintf(ss, sizeof ss, "%lf", searchValue._f64);
+    //   ss << std::dec << searchValue._f64;
+      break;
+    case SEARCH_TYPE_POINTER:
+	snprintf(ss, sizeof ss, "0x%016lX", searchValue._u64);
+    //   ss << std::dec << searchValue._u64;
+      break;
+    case SEARCH_TYPE_NONE:
+      break;
+    }
+  }
+
+  return ss;//.str();
+}
+class MailBoxOverlay : public tsl::Gui {
+public:
+    MailBoxOverlay() { }
+
+    virtual tsl::elm::Element* createUI() override {
+		
+		auto rootFrame = new tsl::elm::OverlayFrame("", "");
+
+		auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+			
+			if (GameRunning == false) renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 80, a(0x7111));
+			else renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
+			
+			//Print strings
+			///CPU
+			if (GameRunning == true) renderer->drawString("CPU\nGPU\nRAM\nTEMP\nFAN\nPFPS\nFPS", false, 0, 15, 15, renderer->a(0xFFFF));
+			else renderer->drawString("A\nB\nTeslaFPS\nTEMP\nFAN", false, 0, 15, 15, renderer->a(0xFFFF));
+			
+			///GPU
+			renderer->drawString(Variables, false, 60, 15, 15, renderer->a(0xFFFF));
+		});
+
+		rootFrame->setContent(Status);
+
+		return rootFrame;
+	}
+
+	virtual void update() override {
+		if (TeslaFPS == 60) TeslaFPS = 1;
+		//In case of getting more than systemtickfrequency in idle, make it equal to systemtickfrequency to get 0% as output and nothing less
+		//This is because making each loop also takes time, which is not considered because this will take also additional time
+		if (idletick0 > systemtickfrequency) idletick0 = systemtickfrequency;
+		if (idletick1 > systemtickfrequency) idletick1 = systemtickfrequency;
+		if (idletick2 > systemtickfrequency) idletick2 = systemtickfrequency;
+		if (idletick3 > systemtickfrequency) idletick3 = systemtickfrequency;
+		
+		//Make stuff ready to print
+		///CPU
+		double percent = ((double)systemtickfrequency - (double)idletick0) / (double)systemtickfrequency * 100;
+		snprintf(CPU_Usage0, sizeof CPU_Usage0, "%.0f%s", percent, "%");
+		percent = ((double)systemtickfrequency - (double)idletick1) / (double)systemtickfrequency * 100;
+		snprintf(CPU_Usage1, sizeof CPU_Usage1, "%.0f%s", percent, "%");
+		percent = ((double)systemtickfrequency - (double)idletick2) / (double)systemtickfrequency * 100;
+		snprintf(CPU_Usage2, sizeof CPU_Usage2, "%.0f%s", percent, "%");
+		percent = ((double)systemtickfrequency - (double)idletick3) / (double)systemtickfrequency * 100;
+		snprintf(CPU_Usage3, sizeof CPU_Usage3, "%.0f%s", percent, "%");
+		snprintf(CPU_compressed_c, sizeof CPU_compressed_c, "[%s,%s,%s,%s]@%.1f", CPU_Usage0, CPU_Usage1, CPU_Usage2, CPU_Usage3, (float)CPU_Hz / 1000000);
+		
+		///GPU
+		snprintf(GPU_Load_c, sizeof GPU_Load_c, "%.1f%s@%.1f", (float)GPU_Load_u / 10, "%", (float)GPU_Hz / 1000000);
+		
+		///RAM
+		float RAM_Total_application_f = (float)RAM_Total_application_u / 1024 / 1024;
+		float RAM_Total_applet_f = (float)RAM_Total_applet_u / 1024 / 1024;
+		float RAM_Total_system_f = (float)RAM_Total_system_u / 1024 / 1024;
+		float RAM_Total_systemunsafe_f = (float)RAM_Total_systemunsafe_u / 1024 / 1024;
+		float RAM_Total_all_f = RAM_Total_application_f + RAM_Total_applet_f + RAM_Total_system_f + RAM_Total_systemunsafe_f;
+		float RAM_Used_application_f = (float)RAM_Used_application_u / 1024 / 1024;
+		float RAM_Used_applet_f = (float)RAM_Used_applet_u / 1024 / 1024;
+		float RAM_Used_system_f = (float)RAM_Used_system_u / 1024 / 1024;
+		float RAM_Used_systemunsafe_f = (float)RAM_Used_systemunsafe_u / 1024 / 1024;
+		float RAM_Used_all_f = RAM_Used_application_f + RAM_Used_applet_f + RAM_Used_system_f + RAM_Used_systemunsafe_f;
+		snprintf(RAM_all_c, sizeof RAM_all_c, "%.0f/%.0fMB", RAM_Used_all_f, RAM_Total_all_f);
+		snprintf(RAM_var_compressed_c, sizeof RAM_var_compressed_c, "%s@%.1f", RAM_all_c, (float)RAM_Hz / 1000000);
+		
+		///Thermal
+		snprintf(skin_temperature_c, sizeof skin_temperature_c, "%2.1f\u00B0C/%2.1f\u00B0C/%2.1f\u00B0C", (float)SoC_temperaturemiliC / 1000, (float)PCB_temperaturemiliC / 1000, (float)skin_temperaturemiliC / 1000);
+		snprintf(Rotation_SpeedLevel_c, sizeof Rotation_SpeedLevel_c, "%2.2f%s", Rotation_SpeedLevel_f * 100, "%");
+		
+		///FPS
+		snprintf(FPS_c, sizeof FPS_c, "PFPS:"); //Pushed Frames Per Second
+		snprintf(FPSavg_c, sizeof FPSavg_c, "FPS:"); //Frames Per Second calculated from averaged frametime 
+		snprintf(FPS_compressed_c, sizeof FPS_compressed_c, "%s\n%s", FPS_c, FPSavg_c);
+		snprintf(FPS_var_compressed_c, sizeof FPS_compressed_c, "%u\n%2.2f", FPS, FPSavg);
+
+		if (GameRunning == true) snprintf(Variables, sizeof Variables, "%s\n%s\n%s\n%s\n%s\n%s", CPU_compressed_c, GPU_Load_c, RAM_var_compressed_c, skin_temperature_c, Rotation_SpeedLevel_c, FPS_var_compressed_c);
+		else snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
+
+	}
+	virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
+			CloseThreads();
+			tsl::goBack();
+			return true;
+		};
+		if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
+			CloseThreads();
+			tsl::goBack();
+			return true;
+		}
+		return false;
+	}
+};
+class BookmarkOverlay : public tsl::Gui {
+public:
+    BookmarkOverlay() { }
+
+    virtual tsl::elm::Element* createUI() override {
+		
+		auto rootFrame = new tsl::elm::OverlayFrame("", "");
+
+		auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+			
+			if (GameRunning == false) renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 180, a(0x7111));
+			else renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
+			
+
+			renderer->drawString(BookmarkLabels, false, 5, 15, 15, renderer->a(0xFFFF));
+			
+			renderer->drawString(Variables, false, 140, 15, 15, renderer->a(0xFFFF));
+		});
+
+		rootFrame->setContent(Status);
+
+		return rootFrame;
+	}
+
+	virtual void update() override {
+		if (TeslaFPS == 60) TeslaFPS = 1;
+		
+		// snprintf(FPS_var_compressed_c, sizeof FPS_compressed_c, "%u\n%2.2f", FPS, FPSavg);
+// snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
+// snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
+// strcat(BookmarkLabels,bookmarkfilename);
+snprintf(BookmarkLabels,sizeof BookmarkLabels,"Hold Left Stick & Right Stick to Exit\n");
+snprintf(Variables,sizeof Variables, "\n");
+		// BookmarkLabels[0]=0;
+		// Variables[0]=0;
+		// snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
+		for (u8 line = 0; line < NUM_bookmark; line++) {
+			if ((line + m_addresslist_offset) >= (m_memoryDump->size() / sizeof(u64)))
+				break;
+
+			// std::stringstream ss;
+			// ss.str("");
+			char ss[200] = "";
+			bookmark_t bookmark;
+			// if (line < NUM_bookmark)  // && (m_memoryDump->size() / sizeof(u64)) != 8)
+			{
+				u64 address = 0;
+				m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+// return;
+				m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+				// if (false)
+				if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
+				{
+					bool updateaddress = true;
+					u64 nextaddress = metadata.main_nso_extents.base; //m_mainBaseAddr;
+					for (int z = bookmark.pointer.depth; z >= 0; z--) {
+						nextaddress += bookmark.pointer.offset[z];
+						MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
+						if (meminfo.perm == Perm_Rw)
+							if (z == 0) {
+								if (address == nextaddress)
+									updateaddress = false;
+								else {
+									address = nextaddress;
+								}
+							} else
+								m_debugger->readMemory(&nextaddress, ((m_32bitmode) ? sizeof(u32) : sizeof(u64)), nextaddress);
+						else {
+							updateaddress = false;
+							break;
+						}
+					}
+					if (updateaddress) {
+						m_memoryDump->putData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+						m_memoryDump->flushBuffer();
+					}
+				}
+				// bookmark display
+				snprintf(ss, sizeof ss, "%s\n", _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
+				strcat(Variables,ss);
+				snprintf(ss, sizeof ss, "%s\n", bookmark.label);
+				strcat(BookmarkLabels,ss);
+			// 	ss << "[0x" << std::uppercase << std::hex << std::setfill('0') << std::setw(10) << (address) << "]";  //<< std::left << std::setfill(' ') << std::setw(18) << bookmark.label <<
+
+			// 	ss << "  ( " << _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type) << " )";
+
+			// 	if (m_frozenAddresses.find(address) != m_frozenAddresses.end())
+			// 		ss << " \uE130";
+			// 	if (bookmark.pointer.depth > 0)  // have pointer
+			// 		ss << " *";
+			} 
+			// else {
+			// 	snprintf(ss, sizeof ss, "%s\n", bookmark.label);
+			// 	strcat(BookmarkLabels,ss);
+			// 	ss << "And " << std::dec << ((m_memoryDump->size() / sizeof(u64)) - 8) << " others...";
+			// }
+			// Gui::drawRectangle(Gui::g_framebuffer_width - 555, 300 + line * 40, 545, 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? currTheme.highlightColor : line % 2 == 0 ? currTheme.backgroundColor
+			// 																																													: currTheme.separatorColor);
+			// Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 545, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, bookmark.deleted ? "To be deleted" : bookmark.label, ALIGNED_LEFT);
+			// Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 340, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, ss.str().c_str(), ALIGNED_LEFT);
+		}
+    };
+	virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
+			// CloseThreads();
+			cleanup_se_tools();
+			tsl::goBack();
+			return true;
+		};
+		if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
+			// CloseThreads();
+			cleanup_se_tools();
+			tsl::goBack();
+			return true;
+		}
+		return false;
+	}
+};
 //Mini mode
 class MiniOverlay : public tsl::Gui {
 public:
@@ -672,7 +1034,7 @@ public:
     CustomOverlay() { }
 
     virtual tsl::elm::Element* createUI() override {
-		auto rootFrame = new tsl::elm::OverlayFrame("Mini Overlay", APP_VERSION);
+		auto rootFrame = new tsl::elm::OverlayFrame("Custom Overlay", APP_VERSION);
 
 		auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
 			
@@ -778,34 +1140,69 @@ public:
 		auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
 		auto list = new tsl::elm::List();
 		
-		auto Full = new tsl::elm::ListItem("Full");
-		Full->setClickListener([](uint64_t keys) {
+		auto Bookmark = new tsl::elm::ListItem("Show SE Bookmark");
+		Bookmark->setClickListener([](uint64_t keys) {
 			if (keys & HidNpadButton_A) {
-				StartThreads();
-				TeslaFPS = 1;
-				refreshrate = 1;
-				tsl::hlp::requestForeground(false);
-				tsl::changeTo<FullOverlay>();
-				return true;
-			}
-			return false;
-		});
-		list->addItem(Full);
-		auto Mini = new tsl::elm::ListItem("Mini");
-		Mini->setClickListener([](uint64_t keys) {
-			if (keys & HidNpadButton_A) {
-				StartThreads();
+				// StartThreads();
+				init_se_tools();
 				TeslaFPS = 1;
 				refreshrate = 1;
 				alphabackground = 0x0;
 				tsl::hlp::requestForeground(false);
 				FullMode = false;
-				tsl::changeTo<MiniOverlay>();
+				tsl::changeTo<BookmarkOverlay>();
 				return true;
 			}
 			return false;
 		});
-		list->addItem(Mini);
+		list->addItem(Bookmark);
+		
+		// auto MailBox = new tsl::elm::ListItem("MailBox");
+		// MailBox->setClickListener([](uint64_t keys) {
+		// 	if (keys & HidNpadButton_A) {
+		// 		StartThreads();
+		// 		TeslaFPS = 1;
+		// 		refreshrate = 1;
+		// 		alphabackground = 0x0;
+		// 		tsl::hlp::requestForeground(false);
+		// 		FullMode = false;
+		// 		tsl::changeTo<MailBoxOverlay>();
+		// 		return true;
+		// 	}
+		// 	return false;
+		// });
+		// list->addItem(MailBox);
+		
+		// auto Full = new tsl::elm::ListItem("Full");
+		// Full->setClickListener([](uint64_t keys) {
+		// 	if (keys & HidNpadButton_A) {
+		// 		StartThreads();
+		// 		TeslaFPS = 1;
+		// 		refreshrate = 1;
+		// 		tsl::hlp::requestForeground(false);
+		// 		tsl::changeTo<FullOverlay>();
+		// 		return true;
+		// 	}
+		// 	return false;
+		// });
+		// list->addItem(Full);
+
+		// auto Mini = new tsl::elm::ListItem("Mini");
+		// Mini->setClickListener([](uint64_t keys) {
+		// 	if (keys & HidNpadButton_A) {
+		// 		StartThreads();
+		// 		TeslaFPS = 1;
+		// 		refreshrate = 1;
+		// 		alphabackground = 0x0;
+		// 		tsl::hlp::requestForeground(false);
+		// 		FullMode = false;
+		// 		tsl::changeTo<MiniOverlay>();
+		// 		return true;
+		// 	}
+		// 	return false;
+		// });
+		// list->addItem(Mini);
+
 		if (SaltySD == true) {
 			auto comFPS = new tsl::elm::ListItem("FPS Counter");
 			comFPS->setClickListener([](uint64_t keys) {
@@ -854,10 +1251,19 @@ public:
 			refreshrate = 1;
 			systemtickfrequency = 19200000;
 		}
+		if (Bstate.A == 123) {
+			tsl::hlp::requestForeground(true);
+			Bstate.A += 100;
+		};
+		Bstate.B +=1;
 	}
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
 		if (keysHeld & HidNpadButton_B) {
 			tsl::goBack();
+			return true;
+		}
+		if (keysHeld & HidNpadButton_X) {
+			tsl::Overlay::get()->hide();
 			return true;
 		}
 		return false;
@@ -868,6 +1274,7 @@ class MonitorOverlay : public tsl::Overlay {
 public:
 
 	virtual void initServices() override {
+		dmntchtCheck = dmntchtInitialize();
 		//Initialize services
 		if (R_SUCCEEDED(smInitialize())) {
 			
@@ -889,9 +1296,9 @@ public:
 			if (R_SUCCEEDED(psmCheck)) psmService = psmGetServiceSession();
 #endif
 			
-			Atmosphere_present = isServiceRunning("dmnt:cht");
-			SaltySD = CheckPort();
-			if (SaltySD == true && Atmosphere_present == true) dmntchtCheck = dmntchtInitialize();
+			// Atmosphere_present = isServiceRunning("dmnt:cht");
+			// SaltySD = CheckPort();
+			// if (SaltySD == true && Atmosphere_present == true) dmntchtCheck = dmntchtInitialize();
 			
 			if (SaltySD == true) {
 				//Assign NX-FPS to default core
