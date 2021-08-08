@@ -576,6 +576,7 @@ struct bookmark_t {
     u64 offset = 0;
     bool deleted = false;
     u8 multiplier = 0;
+	u16 magic = 0x1289;
 };
 #define NUM_bookmark 10
 char BookmarkLabels[NUM_bookmark * 20] = "";
@@ -847,6 +848,7 @@ class BookmarkOverlay : public tsl::Gui {
                 // m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
                 // return;
                 m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+				if (bookmark.magic!=0x1289) bookmark.multiplier = 1;
                 // if (false)
                 if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
                 {
@@ -1211,6 +1213,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 // m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
                 // return;
                 m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+				if (bookmark.magic!=0x1289) bookmark.multiplier = 1;
                 // if (false)
                 if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
                 {
@@ -1290,6 +1293,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         if ((keysDown & HidNpadButton_L) || (keysDown & HidNpadButton_R)) {
             bookmark_t bookmark;
             m_AttributeDumpBookmark->getData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+			if (bookmark.magic!=0x1289) bookmark.multiplier = 1;
             if (keysDown & HidNpadButton_R) {
                 switch (bookmark.multiplier) {
                     case 1:
@@ -1332,6 +1336,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                         break;
                 };
             };
+			bookmark.magic = 0x1289;
             m_AttributeDumpBookmark->putData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
             return true;
         };
