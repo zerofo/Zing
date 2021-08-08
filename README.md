@@ -10,6 +10,6 @@ A tesla overlay for game cheating with the following planned features:
 4. Make selected cheat only execute once per key down. 
 
 # What is currently supported:
-Nothing yet
+Monitor Game Memory
 
 
