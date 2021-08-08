@@ -595,7 +595,7 @@ char MultiplierStr[NUM_bookmark * 5] = "";
 std::string m_edizon_dir = "/switch/EdiZon";
 std::string m_store_extension = "A";
 Debugger *m_debugger; 
-MemoryDump *m_memoryDump;
+// MemoryDump *m_memoryDump;
 MemoryDump *m_AttributeDumpBookmark;
 u8 m_addresslist_offset = 0;
 bool m_32bitmode = false;
@@ -619,7 +619,7 @@ void init_se_tools() {
                      build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
 
     m_AttributeDumpBookmark = new MemoryDump(bookmarkfilename, DumpType::ADDR, false);
-	m_memoryDump = new MemoryDump(EDIZON_DIR "/memdumpbookmark.dat", DumpType::ADDR, false);
+	// m_memoryDump = new MemoryDump(EDIZON_DIR "/memdumpbookmark.dat", DumpType::ADDR, false);
 	return;
 
 };
@@ -627,7 +627,7 @@ void cleanup_se_tools() {
     // if (dmntchtCheck == 0) dmntchtExit();
     delete m_debugger;
 	delete m_AttributeDumpBookmark;
-	delete m_memoryDump;
+	// delete m_memoryDump;
 	return;
 };
 static std::string _getAddressDisplayString(u64 address, Debugger *debugger, searchType_t searchType)
@@ -847,7 +847,7 @@ snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
 		// Variables[0]=0;
 		// snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
 		for (u8 line = 0; line < NUM_bookmark; line++) {
-			if ((line + m_addresslist_offset) >= (m_memoryDump->size() / sizeof(u64)))
+			if ((line + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t)))
 				break;
 
 			// std::stringstream ss;
@@ -857,7 +857,7 @@ snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
 			// if (line < NUM_bookmark)  // && (m_memoryDump->size() / sizeof(u64)) != 8)
 			{
 				u64 address = 0;
-				m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+				// m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
 // return;
 				m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
 				// if (false)
@@ -882,11 +882,16 @@ snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
 							break;
 						}
 					}
-					if (updateaddress) {
-						m_memoryDump->putData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
-						m_memoryDump->flushBuffer();
-					}
-				}
+					// if (updateaddress) {
+					// 	m_memoryDump->putData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+					// 	m_memoryDump->flushBuffer();
+					// }
+				} else {
+					address = ((bookmark.heap) ? ((m_debugger->queryMemory(metadata.heap_extents.base).type == 0) ? metadata.alias_extents.base
+																													: metadata.heap_extents.base)
+												: metadata.main_nso_extents.base) +
+								bookmark.offset;
+				};
 				// bookmark display 
 				// WIP
 				searchValue_t value ={0};
@@ -1207,7 +1212,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         // Variables[0]=0;
         // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
         for (u8 line = 0; line < NUM_bookmark; line++) {
-            if ((line + m_addresslist_offset) >= (m_memoryDump->size() / sizeof(u64)))
+            if ((line + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t)))
                 break;
 
             // std::stringstream ss;
@@ -1218,7 +1223,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             // if (line < NUM_bookmark)  // && (m_memoryDump->size() / sizeof(u64)) != 8)
             {
                 u64 address = 0;
-                m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+                // m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
                 // return;
                 m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
                 // if (false)
@@ -1243,11 +1248,16 @@ class SetMultiplierOverlay : public tsl::Gui {
                             break;
                         }
                     }
-                    if (updateaddress) {
-                        m_memoryDump->putData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
-                        m_memoryDump->flushBuffer();
-                    }
-                }
+                    // if (updateaddress) {
+                    //     m_memoryDump->putData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+                    //     m_memoryDump->flushBuffer();
+                    // }
+                } else {
+					address = ((bookmark.heap) ? ((m_debugger->queryMemory(metadata.heap_extents.base).type == 0) ? metadata.alias_extents.base
+																													: metadata.heap_extents.base)
+												: metadata.main_nso_extents.base) +
+								bookmark.offset;
+				};
                 // bookmark display
                 snprintf(ss, sizeof ss, "%s\n", _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
                 strcat(Variables, ss);
@@ -1289,7 +1299,7 @@ class SetMultiplierOverlay : public tsl::Gui {
 			return true;
         };  
 		if (keysDown & HidNpadButton_AnyDown) {
-            if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_memoryDump->size() / sizeof(u64) - 1))) m_index++;
+            if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) - 1))) m_index++;
 			return true;
         };  
 		if ((keysDown & HidNpadButton_L) || (keysDown & HidNpadButton_R)) {
