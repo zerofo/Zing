@@ -586,9 +586,12 @@ struct bookmark_t {
     bool heap = true;
     u64 offset = 0;
     bool deleted = false;
+	u8 multiplier = 0;
 };
 #define NUM_bookmark 10
 char BookmarkLabels[NUM_bookmark * 20] = "";
+char Cursor[NUM_bookmark * 5] = "";
+char MultiplierStr[NUM_bookmark * 5] = "";
 std::string m_edizon_dir = "/switch/EdiZon";
 std::string m_store_extension = "A";
 Debugger *m_debugger; 
@@ -596,7 +599,8 @@ MemoryDump *m_memoryDump;
 MemoryDump *m_AttributeDumpBookmark;
 u8 m_addresslist_offset = 0;
 bool m_32bitmode = false;
-// static const std::vector<u8> dataTypeSizes = {1, 1, 2, 2, 4, 4, 8, 8, 4, 8, 8};
+static const std::vector<u8> dataTypeSizes = {1, 1, 2, 2, 4, 4, 8, 8, 4, 8, 8};
+searchValue_t m_oldvalue[NUM_bookmark] ={0};
 DmntCheatProcessMetadata metadata;
 // char Variables[NUM_bookmark*20];
 char bookmarkfilename[200]="bookmark filename";
@@ -819,7 +823,9 @@ public:
 
 			renderer->drawString(BookmarkLabels, false, 5, 15, 15, renderer->a(0xFFFF));
 			
-			renderer->drawString(Variables, false, 140, 15, 15, renderer->a(0xFFFF));
+			renderer->drawString(Variables, false, 150, 15, 15, renderer->a(0xFFFF));
+
+            renderer->drawString(MultiplierStr, false, 260, 15, 15, renderer->a(0xFFFF));
 		});
 
 		rootFrame->setContent(Status);
@@ -836,6 +842,7 @@ public:
 // strcat(BookmarkLabels,bookmarkfilename);
 snprintf(BookmarkLabels,sizeof BookmarkLabels,"Hold Left Stick & Right Stick to Exit\n");
 snprintf(Variables,sizeof Variables, "\n");
+snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
 		// BookmarkLabels[0]=0;
 		// Variables[0]=0;
 		// snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
@@ -880,11 +887,39 @@ snprintf(Variables,sizeof Variables, "\n");
 						m_memoryDump->flushBuffer();
 					}
 				}
-				// bookmark display
-				snprintf(ss, sizeof ss, "%s\n", _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
+				// bookmark display 
+				// WIP
+				searchValue_t value ={0};
+				
+                                m_debugger->readMemory(&value, dataTypeSizes[bookmark.type], address);
+                                if ((m_oldvalue[line]._s64 == 0) || (m_oldvalue[line]._s64 > value._s64))
+                                    m_oldvalue[line]._s64 = value._s64;
+                                else {
+                                    switch (bookmark.type) {
+                                        case SEARCH_TYPE_FLOAT_32BIT:
+                                            if (m_oldvalue[line]._f32 < value._f32) {
+                                                m_oldvalue[line]._f32 = (value._f32 - m_oldvalue[line]._f32) * bookmark.multiplier + value._f32;
+                                            };
+                                            break;
+                                        case SEARCH_TYPE_FLOAT_64BIT:
+                                            if (m_oldvalue[line]._f64 < value._f64) {
+                                                m_oldvalue[line]._f64 = (value._f64 - m_oldvalue[line]._f64) * bookmark.multiplier + value._f64;
+                                            };
+                                            break;
+                                        default:
+                                            if (m_oldvalue[line]._s64 < value._s64) {
+                                                m_oldvalue[line]._s64 = (value._s64 - m_oldvalue[line]._s64) * bookmark.multiplier + value._s64;
+                                            };
+                                            break;
+									};
+									m_debugger->writeMemory(&(m_oldvalue[line]), dataTypeSizes[bookmark.type], address);
+                                };
+                snprintf(ss, sizeof ss, "%s\n", _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
 				strcat(Variables,ss);
 				snprintf(ss, sizeof ss, "%s\n", bookmark.label);
 				strcat(BookmarkLabels,ss);
+				snprintf(ss, sizeof ss, "X%02d\n", bookmark.multiplier);
+                strcat(MultiplierStr, ss);
 			// 	ss << "[0x" << std::uppercase << std::hex << std::setfill('0') << std::setw(10) << (address) << "]";  //<< std::left << std::setfill(' ') << std::setw(18) << bookmark.label <<
 
 			// 	ss << "  ( " << _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type) << " )";
@@ -1130,7 +1165,232 @@ public:
 	}
 };
 #endif
+class SetMultiplierOverlay : public tsl::Gui {
+   public:
+    SetMultiplierOverlay() {}
+    u8 m_index = 0;
+    virtual tsl::elm::Element *createUI() override {
+        auto rootFrame = new tsl::elm::OverlayFrame("", "");
 
+        auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+            if (GameRunning == false)
+                renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 180, a(0x7111));
+            else
+                renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
+
+            renderer->drawString(BookmarkLabels, false, 5, 15, 15, renderer->a(0xFFFF));
+
+            renderer->drawString(Variables, false, 150, 15, 15, renderer->a(0xFFFF));
+
+            renderer->drawString(Cursor, false, 240, 15, 15, renderer->a(0xFFFF));
+
+            renderer->drawString(MultiplierStr, false, 260, 15, 15, renderer->a(0xFFFF));
+        });
+
+        rootFrame->setContent(Status);
+
+        return rootFrame;
+    }
+
+    virtual void update() override {
+        // if (TeslaFPS == 60) TeslaFPS = 1;
+
+        // snprintf(FPS_var_compressed_c, sizeof FPS_compressed_c, "%u\n%2.2f", FPS, FPSavg);
+        // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
+        // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
+        // strcat(BookmarkLabels,bookmarkfilename);
+        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\uE092\uE093 \uE0A4 \uE0A5 change      \uE0A1 exit\n");
+        snprintf(Variables, sizeof Variables, "\n");
+        snprintf(Cursor, sizeof Cursor, "\n");
+        snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
+        // BookmarkLabels[0]=0;
+        // Variables[0]=0;
+        // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
+        for (u8 line = 0; line < NUM_bookmark; line++) {
+            if ((line + m_addresslist_offset) >= (m_memoryDump->size() / sizeof(u64)))
+                break;
+
+            // std::stringstream ss;
+            // ss.str("");
+            char ss[200] = "";
+            bookmark_t bookmark;
+
+            // if (line < NUM_bookmark)  // && (m_memoryDump->size() / sizeof(u64)) != 8)
+            {
+                u64 address = 0;
+                m_memoryDump->getData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+                // return;
+                m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+                // if (false)
+                if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
+                {
+                    bool updateaddress = true;
+                    u64 nextaddress = metadata.main_nso_extents.base;  //m_mainBaseAddr;
+                    for (int z = bookmark.pointer.depth; z >= 0; z--) {
+                        nextaddress += bookmark.pointer.offset[z];
+                        MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
+                        if (meminfo.perm == Perm_Rw)
+                            if (z == 0) {
+                                if (address == nextaddress)
+                                    updateaddress = false;
+                                else {
+                                    address = nextaddress;
+                                }
+                            } else
+                                m_debugger->readMemory(&nextaddress, ((m_32bitmode) ? sizeof(u32) : sizeof(u64)), nextaddress);
+                        else {
+                            updateaddress = false;
+                            break;
+                        }
+                    }
+                    if (updateaddress) {
+                        m_memoryDump->putData((line + m_addresslist_offset) * sizeof(u64), &address, sizeof(u64));
+                        m_memoryDump->flushBuffer();
+                    }
+                }
+                // bookmark display
+                snprintf(ss, sizeof ss, "%s\n", _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
+                strcat(Variables, ss);
+                snprintf(ss, sizeof ss, "%s\n", bookmark.label);
+                strcat(BookmarkLabels, ss);
+                snprintf(ss, sizeof ss, "%s\n", (m_index == line) ? "\uE019" : "");
+                strcat(Cursor, ss);
+                snprintf(ss, sizeof ss, "X%02d\n", bookmark.multiplier);
+                strcat(MultiplierStr, ss);
+                // 	ss << "[0x" << std::uppercase << std::hex << std::setfill('0') << std::setw(10) << (address) << "]";  //<< std::left << std::setfill(' ') << std::setw(18) << bookmark.label <<
+
+                // 	ss << "  ( " << _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type) << " )";
+
+                // 	if (m_frozenAddresses.find(address) != m_frozenAddresses.end())
+                // 		ss << " \uE130";
+                // 	if (bookmark.pointer.depth > 0)  // have pointer
+                // 		ss << " *";
+            }
+            // else {
+            // 	snprintf(ss, sizeof ss, "%s\n", bookmark.label);
+            // 	strcat(BookmarkLabels,ss);
+            // 	ss << "And " << std::dec << ((m_memoryDump->size() / sizeof(u64)) - 8) << " others...";
+            // }
+            // Gui::drawRectangle(Gui::g_framebuffer_width - 555, 300 + line * 40, 545, 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? currTheme.highlightColor : line % 2 == 0 ? currTheme.backgroundColor
+            // 																																													: currTheme.separatorColor);
+            // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 545, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, bookmark.deleted ? "To be deleted" : bookmark.label, ALIGNED_LEFT);
+            // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 340, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, ss.str().c_str(), ALIGNED_LEFT);
+        }
+    };
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+        if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
+            // CloseThreads();
+            cleanup_se_tools();
+            tsl::goBack();
+            return true;
+        };  
+		if (keysDown & HidNpadButton_AnyUp) {
+            if (m_index > 0) m_index--;
+			return true;
+        };  
+		if (keysDown & HidNpadButton_AnyDown) {
+            if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_memoryDump->size() / sizeof(u64) - 1))) m_index++;
+			return true;
+        };  
+		if ((keysDown & HidNpadButton_L) || (keysDown & HidNpadButton_R)) {
+            bookmark_t bookmark;
+            m_AttributeDumpBookmark->getData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+            if (keysDown & HidNpadButton_R) {
+                switch (bookmark.multiplier) {
+                    case 1:
+                        bookmark.multiplier = 2;
+						break;
+                    case 2:
+                        bookmark.multiplier = 4;
+                        break;
+                    case 4:
+                        bookmark.multiplier = 8;
+                        break;
+                    case 8:
+                        bookmark.multiplier = 16;
+                        break;
+                    case 16:
+                        bookmark.multiplier = 32;
+                        break;
+					case 32:
+						break;
+                    default:
+                        bookmark.multiplier = 1;
+                        break;
+                };
+            } else {
+                switch (bookmark.multiplier) {
+                    case 32:
+                        bookmark.multiplier = 16;
+                        break;
+                    case 16:
+                        bookmark.multiplier = 8;
+                        break;
+                    case 8:
+                        bookmark.multiplier = 4;
+                        break;
+                    case 4:
+                        bookmark.multiplier = 2;
+						break;
+                    default:
+                        bookmark.multiplier = 1;
+                        break;
+                };
+            };
+            m_AttributeDumpBookmark->putData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+            return true;
+        };  
+		if (keysDown & HidNpadButton_B) {
+            // CloseThreads();
+            cleanup_se_tools();
+            tsl::goBack();
+            return true;
+        }
+        return false;
+        }
+};
+class SetMultiplierOverlay2 : public tsl::Gui {
+public:
+    SetMultiplierOverlay2() { }
+
+    virtual tsl::elm::Element* createUI() override {
+		auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
+		auto list = new tsl::elm::List();
+		
+		auto Bookmark = new tsl::elm::ListItem("Show SE Bookmark");
+		Bookmark->setClickListener([](uint64_t keys) {
+			if (keys & HidNpadButton_A) {
+				// StartThreads();
+				init_se_tools();
+				TeslaFPS = 1;
+				refreshrate = 1;
+				alphabackground = 0x0;
+				tsl::hlp::requestForeground(false);
+				FullMode = false;
+				tsl::changeTo<BookmarkOverlay>();
+				return true;
+			}
+			return false;
+		});
+		list->addItem(Bookmark);
+
+		rootFrame->setContent(list);
+		return rootFrame;
+	}
+	virtual void update() override {
+	}
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if (keysHeld & HidNpadButton_B) {
+			tsl::goBack();
+			return true;
+		}
+		if (keysHeld & HidNpadButton_X) {
+			tsl::Overlay::get()->hide();
+			return true;
+		}
+		return false;
+    }
+};
 //Main Menu
 class MainMenu : public tsl::Gui {
 public:
@@ -1156,8 +1416,25 @@ public:
 			return false;
 		});
 		list->addItem(Bookmark);
-		
-		// auto MailBox = new tsl::elm::ListItem("MailBox");
+
+		auto SetMultiplier = new tsl::elm::ListItem("Set Bookmark Value Multiplier");
+		SetMultiplier->setClickListener([](uint64_t keys) {
+			if (keys & HidNpadButton_A) {
+				// StartThreads();
+				init_se_tools();
+				TeslaFPS = 60;
+				refreshrate = 1;
+				alphabackground = 0x0;
+				tsl::hlp::requestForeground(true);
+				FullMode = false;
+				tsl::changeTo<SetMultiplierOverlay>();
+				return true;
+			}
+			return false;
+		});
+		list->addItem(SetMultiplier);
+
+                // auto MailBox = new tsl::elm::ListItem("MailBox");
 		// MailBox->setClickListener([](uint64_t keys) {
 		// 	if (keys & HidNpadButton_A) {
 		// 		StartThreads();
