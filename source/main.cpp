@@ -563,6 +563,7 @@ class FullOverlay : public tsl::Gui {
     }
 };
 // Bookmark display
+// WIP
 #define MAX_POINTER_DEPTH 12
 struct pointer_chain_t {
     u64 depth = 0;
@@ -579,15 +580,24 @@ struct bookmark_t {
 	u16 magic = 0x1289;
 };
 #define NUM_bookmark 10
-char BookmarkLabels[NUM_bookmark * 20] = "";
-char Cursor[NUM_bookmark * 5] = "";
-char MultiplierStr[NUM_bookmark * 5] = "";
+#define NUM_cheats 20
+char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41] = "";
+char Cursor[NUM_bookmark * 5 + NUM_cheats * 5] = "";
+char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5] = "";
+char CheatsLabelsStr[NUM_cheats * 0x41] = "";
+char CheatsCursor[NUM_cheats * 5] = "";
+char CheatsEnableStr[NUM_cheats * 5] = "";
+bool m_show_only_enabled_cheats = true;
+bool m_cursor_on_bookmark = true;
+u8 m_index = 0;
+u8 m_cheat_index = 0;
 std::string m_edizon_dir = "/switch/EdiZon";
 std::string m_store_extension = "A";
 Debugger *m_debugger;
 // MemoryDump *m_memoryDump;
 MemoryDump *m_AttributeDumpBookmark;
 u8 m_addresslist_offset = 0;
+u8 m_cheatlist_offset = 0;
 bool m_32bitmode = false;
 static const std::vector<u8> dataTypeSizes = {1, 1, 2, 2, 4, 4, 8, 8, 4, 8, 8};
 searchValue_t m_oldvalue[NUM_bookmark] = {0};
@@ -597,12 +607,51 @@ char bookmarkfilename[200] = "bookmark filename";
 void init_se_tools() {
     if (dmntchtCheck == 1) dmntchtCheck = dmntchtInitialize();
 
-    dmntchtGetCheatProcessMetadata(&metadata);
+    m_debugger = new Debugger();
+    dmntchtForceOpenCheatProcess();
+    dmntchtHasCheatProcess(&(m_debugger->m_dmnt));
+    if (m_debugger->m_dmnt)
+        dmntchtGetCheatProcessMetadata(&metadata);
+    else {
+        LoaderModuleInfo proc_modules[2] = {};
+        s32 num_modules = 2;
+        ldrDmntInitialize();
+        Result rc = ldrDmntGetProcessModuleInfo(m_debugger->getRunningApplicationPID(), proc_modules, std::size(proc_modules), &num_modules);
+        ldrDmntExit();
+        const LoaderModuleInfo *proc_module = nullptr;
+        if (num_modules == 2) {
+            proc_module = &proc_modules[1];
+        } else if (num_modules == 1) {
+            proc_module = &proc_modules[0];
+        }
+        if (rc != 0)
+            printf("num_modules = %x, proc_module->base_address = %lx , pid = %ld, rc = %x\n ", num_modules, proc_module->base_address, m_debugger->getRunningApplicationPID(), rc);
+        metadata.main_nso_extents.base = proc_module->base_address;
+        metadata.main_nso_extents.size = proc_module->size;
+        Handle proc_h;        
+        {
+            typedef struct {
+                u64 keys_held;
+                u64 flags;
+            } CfgOverrideStatus;
+            struct {
+                NcmProgramLocation loc;
+                CfgOverrideStatus status;
+            } out;
+            u64 pid = m_debugger->getRunningApplicationPID();
+            serviceDispatchInOut(pmdmntGetServiceSession(), 65000, pid, out,
+                                             .out_handle_attrs = {SfOutHandleAttr_HipcCopy},
+                                             .out_handles = &proc_h, );
+        };
+        rc = svcGetInfo(&metadata.heap_extents.base, InfoType_HeapRegionAddress, proc_h, 0);
+        // printf("metadata.heap_extents.base = %lx rc = %x\n", metadata.heap_extents.base, rc);
+        std::memcpy(metadata.main_nso_build_id, proc_module->build_id, sizeof((metadata.main_nso_build_id)));
+    };
+    // dmntchtGetCheatProcessMetadata(&metadata);
     u8 build_id[0x20];
     memcpy(build_id, metadata.main_nso_build_id, 0x20);
 
-    m_debugger = new Debugger();
-
+    // if (!(m_debugger->m_dmnt)) {m_debugger->attachToProcess();m_debugger->resume();}
     // check and set m_32bitmode
 
     snprintf(bookmarkfilename, 200, "%s/%02X%02X%02X%02X%02X%02X%02X%02X.dat", EDIZON_DIR,
@@ -796,6 +845,46 @@ class MailBoxOverlay : public tsl::Gui {
         return false;
     }
 };
+u64 m_cheatCnt = 0; // WIP
+DmntCheatEntry *m_cheats = nullptr;
+bool refresh_cheats = true;
+
+void getcheats(){ // WIP
+    char ss[200] = "";
+    if (refresh_cheats) {
+        if (m_cheatCnt != 0) delete m_cheats;
+        dmntchtGetCheatCount(&m_cheatCnt);
+        if (m_cheatCnt > 0) {
+            m_cheats = new DmntCheatEntry[m_cheatCnt];
+            dmntchtGetCheats(m_cheats, m_cheatCnt, 0, &m_cheatCnt);
+        }
+        refresh_cheats = false;
+    };
+    if (m_show_only_enabled_cheats)
+        snprintf(CheatsLabelsStr, sizeof BookmarkLabels, "Enabled Cheats\n");
+    else
+        snprintf(CheatsLabelsStr, sizeof BookmarkLabels, "All Available Cheats\n");
+    snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
+    snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
+
+    for (u8 line = 0; line < NUM_cheats; line++) {
+        while (m_show_only_enabled_cheats && !(m_cheats[line + m_cheatlist_offset].enabled)){
+             m_cheatlist_offset ++;
+             if ((line + m_cheatlist_offset) >= m_cheatCnt)
+                 break;
+        };
+        if ((line + m_cheatlist_offset) >= m_cheatCnt)
+            break;
+        {
+            snprintf(ss, sizeof ss, "%s\n", m_cheats[line + m_cheatlist_offset].definition.readable_name);
+            strcat(CheatsLabelsStr, ss);
+            snprintf(ss, sizeof ss, "%s\n", ((m_cheat_index == line) && (!m_show_only_enabled_cheats) && !m_cursor_on_bookmark) ? "\uE019" : "");
+            strcat(CheatsCursor, ss);
+            snprintf(ss, sizeof ss, "%s\n", (m_cheats[line + m_cheatlist_offset].enabled) ? "on" : "off");
+            strcat(CheatsEnableStr, ss);
+        }
+    };
+};
 class BookmarkOverlay : public tsl::Gui {
    public:
     BookmarkOverlay() {}
@@ -830,6 +919,7 @@ class BookmarkOverlay : public tsl::Gui {
         // strcat(BookmarkLabels,bookmarkfilename);
         snprintf(BookmarkLabels, sizeof BookmarkLabels, "Hold Left Stick & Right Stick to Exit\n");
         snprintf(Variables, sizeof Variables, "\n");
+        snprintf(Cursor, sizeof Cursor, "\n");
         snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
@@ -886,23 +976,31 @@ class BookmarkOverlay : public tsl::Gui {
                 searchValue_t value = {0};
 
                 m_debugger->readMemory(&value, dataTypeSizes[bookmark.type], address);
-                if ((m_oldvalue[line]._s64 == 0) || (m_oldvalue[line]._s64 > value._s64))
+                if ((m_oldvalue[line]._u64 == 0) || (m_oldvalue[line]._s64 > value._s64))
                     m_oldvalue[line]._s64 = value._s64;
-                else {
+                else if (bookmark.multiplier != 1) {
                     switch (bookmark.type) {
                         case SEARCH_TYPE_FLOAT_32BIT:
                             if (m_oldvalue[line]._f32 < value._f32) {
-                                m_oldvalue[line]._f32 = (value._f32 - m_oldvalue[line]._f32) * bookmark.multiplier + value._f32;
+                                m_oldvalue[line]._f32 = (value._f32 - m_oldvalue[line]._f32) * bookmark.multiplier + m_oldvalue[line]._f32;
                             };
                             break;
                         case SEARCH_TYPE_FLOAT_64BIT:
                             if (m_oldvalue[line]._f64 < value._f64) {
-                                m_oldvalue[line]._f64 = (value._f64 - m_oldvalue[line]._f64) * bookmark.multiplier + value._f64;
+                                m_oldvalue[line]._f64 = (value._f64 - m_oldvalue[line]._f64) * bookmark.multiplier + m_oldvalue[line]._f64;
+                            };
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_8BIT:
+                        case SEARCH_TYPE_UNSIGNED_16BIT:
+                        case SEARCH_TYPE_UNSIGNED_32BIT:
+                        case SEARCH_TYPE_UNSIGNED_64BIT:
+                            if (m_oldvalue[line]._u64 < value._u64) {
+                                m_oldvalue[line]._u64 = (value._u64 - m_oldvalue[line]._u64) * bookmark.multiplier + m_oldvalue[line]._u64;
                             };
                             break;
                         default:
                             if (m_oldvalue[line]._s64 < value._s64) {
-                                m_oldvalue[line]._s64 = (value._s64 - m_oldvalue[line]._s64) * bookmark.multiplier + value._s64;
+                                m_oldvalue[line]._s64 = (value._s64 - m_oldvalue[line]._s64) * bookmark.multiplier + m_oldvalue[line]._s64;
                             };
                             break;
                     };
@@ -912,7 +1010,9 @@ class BookmarkOverlay : public tsl::Gui {
                 strcat(Variables, ss);
                 snprintf(ss, sizeof ss, "%s\n", bookmark.label);
                 strcat(BookmarkLabels, ss);
-                snprintf(ss, sizeof ss, "X%02d\n", bookmark.multiplier);
+                snprintf(ss, sizeof ss, "\n");
+                strcat(Cursor, ss);
+                snprintf(ss, sizeof ss, (bookmark.multiplier != 1) ? "X%02d\n" : "\n", bookmark.multiplier);
                 strcat(MultiplierStr, ss);
                 // 	ss << "[0x" << std::uppercase << std::hex << std::setfill('0') << std::setw(10) << (address) << "]";  //<< std::left << std::setfill(' ') << std::setw(18) << bookmark.label <<
 
@@ -933,6 +1033,11 @@ class BookmarkOverlay : public tsl::Gui {
             // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 545, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, bookmark.deleted ? "To be deleted" : bookmark.label, ALIGNED_LEFT);
             // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 340, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, ss.str().c_str(), ALIGNED_LEFT);
         }
+        m_show_only_enabled_cheats = true;
+        m_cheatlist_offset = 0;
+        getcheats();
+        strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
+        strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
@@ -1159,16 +1264,18 @@ class CustomOverlay : public tsl::Gui {
 #endif
 class SetMultiplierOverlay : public tsl::Gui {
    public:
-    SetMultiplierOverlay() {}
-    u8 m_index = 0;
+    SetMultiplierOverlay() {
+        m_cheatlist_offset = 0;
+    }
+    
     virtual tsl::elm::Element *createUI() override {
         auto rootFrame = new tsl::elm::OverlayFrame("", "");
 
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-            if (GameRunning == false)
-                renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 180, a(0x7111));
-            else
-                renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
+            // if (GameRunning == false)
+            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth , tsl::cfg::FramebufferHeight, a(0x7111));
+            // else
+            //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
 
             renderer->drawString(BookmarkLabels, false, 5, 15, 15, renderer->a(0xFFFF));
 
@@ -1251,7 +1358,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 strcat(Variables, ss);
                 snprintf(ss, sizeof ss, "%s\n", bookmark.label);
                 strcat(BookmarkLabels, ss);
-                snprintf(ss, sizeof ss, "%s\n", (m_index == line) ? "\uE019" : "");
+                snprintf(ss, sizeof ss, "%s\n", ((m_index == line) && m_cursor_on_bookmark) ? "\uE019" : "");
                 strcat(Cursor, ss);
                 snprintf(ss, sizeof ss, "X%02d\n", bookmark.multiplier);
                 strcat(MultiplierStr, ss);
@@ -1274,7 +1381,15 @@ class SetMultiplierOverlay : public tsl::Gui {
             // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 545, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, bookmark.deleted ? "To be deleted" : bookmark.label, ALIGNED_LEFT);
             // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 340, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, ss.str().c_str(), ALIGNED_LEFT);
         }
+        // print cheats
+        m_show_only_enabled_cheats = false;
+        m_cheatlist_offset = 0;
+        getcheats();
+        strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
+        strncat(Cursor,CheatsCursor, sizeof Cursor-1);
+        strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
+    // WIP Setting
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             // CloseThreads();
@@ -1283,14 +1398,22 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         };
         if (keysDown & HidNpadButton_AnyUp) {
-            if (m_index > 0) m_index--;
+            if (m_cursor_on_bookmark) {
+                if (m_index > 0) m_index--;
+            } else {
+                if (m_cheat_index > 0) m_cheat_index--;
+            }
             return true;
         };
         if (keysDown & HidNpadButton_AnyDown) {
-            if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) - 1))) m_index++;
+            if (m_cursor_on_bookmark) {
+                if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) - 1))) m_index++;
+            } else {
+                if ((m_cheat_index < NUM_cheats - 1) && ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)) m_cheat_index++;
+            }
             return true;
         };
-        if ((keysDown & HidNpadButton_L) || (keysDown & HidNpadButton_R)) {
+        if (((keysDown & HidNpadButton_L) || (keysDown & HidNpadButton_R)) && m_cursor_on_bookmark) {
             bookmark_t bookmark;
             m_AttributeDumpBookmark->getData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
 			if (bookmark.magic!=0x1289) bookmark.multiplier = 1;
@@ -1340,6 +1463,19 @@ class SetMultiplierOverlay : public tsl::Gui {
             m_AttributeDumpBookmark->putData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
             return true;
         };
+        if ((keysDown & HidNpadButton_A) && !m_cursor_on_bookmark) {
+            dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+            refresh_cheats = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_AnyLeft) {
+            m_cursor_on_bookmark = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_AnyRight) {
+            m_cursor_on_bookmark = false;
+            return true;
+        }
         if (keysDown & HidNpadButton_B) {
             // CloseThreads();
             cleanup_se_tools();
@@ -1422,7 +1558,7 @@ class MainMenu : public tsl::Gui {
             if (keys & HidNpadButton_A) {
                 // StartThreads();
                 init_se_tools();
-                TeslaFPS = 60;
+                TeslaFPS = 50;
                 refreshrate = 1;
                 alphabackground = 0x0;
                 tsl::hlp::requestForeground(true);
@@ -1535,7 +1671,7 @@ class MainMenu : public tsl::Gui {
         Bstate.B += 1;
     }
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-        if (keysHeld & HidNpadButton_B) {
+        if (keysDown & HidNpadButton_B) {
             tsl::goBack();
             return true;
         }
