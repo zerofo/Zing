@@ -618,6 +618,8 @@ char CheatsCursor[NUM_cheats * 5] = "";
 char CheatsEnableStr[NUM_cheats * 5] = "";
 bool m_show_only_enabled_cheats = true;
 bool m_cursor_on_bookmark = true;
+u8 m_displayed_bookmark_lines = 0;
+u8 m_displayed_cheat_lines = 0;
 u8 m_index = 0;
 u8 m_cheat_index = 0;
 std::string m_edizon_dir = "/switch/EdiZon";
@@ -892,6 +894,7 @@ void getcheats(){ // WIP
     if (m_show_only_enabled_cheats) {
         snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "   Enabled Cheats\n");
         snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
+        m_displayed_cheat_lines = 0;
     } else {
         total_opcode = 0;
         for (u8 i = 0; i < m_cheatCnt; i++)
@@ -919,12 +922,13 @@ void getcheats(){ // WIP
                 }
             snprintf(ss, sizeof ss, "%s%s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name);
             strcat(CheatsLabelsStr, ss);
+            m_displayed_cheat_lines++;
             snprintf(ss, sizeof ss, "%s\n", ((m_cheat_index == line) && (!m_show_only_enabled_cheats) && !m_cursor_on_bookmark) ? "\uE019" : "");
             strcat(CheatsCursor, ss);
             if (m_show_only_enabled_cheats)
                 snprintf(ss, sizeof ss, "\n");
             else
-                snprintf(ss, sizeof ss, "%s\n", (m_cheats[line + m_cheatlist_offset].enabled) ? "on" : "off");
+                snprintf(ss, sizeof ss, "%s\n", (m_cheats[line + m_cheatlist_offset].enabled) ? "\u25A0" : "\u25A1");
             strcat(CheatsEnableStr, ss);
         }
     };
@@ -937,10 +941,10 @@ class BookmarkOverlay : public tsl::Gui {
         auto rootFrame = new tsl::elm::OverlayFrame("", "");
 
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-            if (GameRunning == false)
-                renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 180, a(0x7111));
-            else
-                renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
+            // if (GameRunning == false)
+            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 15 * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
+            // else
+            //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
 
             renderer->drawString(BookmarkLabels, false, 5, 15, 15, renderer->a(0xFFFF));
 
@@ -965,6 +969,7 @@ class BookmarkOverlay : public tsl::Gui {
         snprintf(Variables, sizeof Variables, "\n");
         snprintf(Cursor, sizeof Cursor, "\n");
         snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
+        m_displayed_bookmark_lines = 0;
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
         // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
@@ -1058,6 +1063,7 @@ class BookmarkOverlay : public tsl::Gui {
                 strcat(Cursor, ss);
                 snprintf(ss, sizeof ss, (bookmark.multiplier != 1) ? "X%02d\n" : "\n", bookmark.multiplier);
                 strcat(MultiplierStr, ss);
+                m_displayed_bookmark_lines++;
                 // 	ss << "[0x" << std::uppercase << std::hex << std::setfill('0') << std::setw(10) << (address) << "]";  //<< std::left << std::setfill(' ') << std::setw(18) << bookmark.label <<
 
                 // 	ss << "  ( " << _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type) << " )";
