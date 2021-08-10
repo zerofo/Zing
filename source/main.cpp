@@ -581,6 +581,35 @@ struct bookmark_t {
 };
 #define NUM_bookmark 10
 #define NUM_cheats 20
+u32 total_opcode = 0;
+#define MaxCheatCount 0x80
+#define MaxOpcodes 0x100 // uint32_t opcodes[0x100]
+#define MaximumProgramOpcodeCount 0x400
+static const std::vector<u32> buttonCodes = {0x80000001,
+                                             0x80000002,
+                                             0x80000004,
+                                             0x80000008,
+                                             0x80000010,
+                                             0x80000020,
+                                             0x80000040,
+                                             0x80000080,
+                                             0x80000100,
+                                             0x80000200,
+                                             0x80000400,
+                                             0x80000800,
+                                             0x80001000,
+                                             0x80002000,
+                                             0x80004000,
+                                             0x80008000,
+                                             0x80010000,
+                                             0x80020000,
+                                             0x80040000,
+                                             0x80080000,
+                                             0x80100000,
+                                             0x80200000,
+                                             0x80400000,
+                                             0x80800000};
+static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
 char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41] = "";
 char Cursor[NUM_bookmark * 5 + NUM_cheats * 5] = "";
 char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5] = "";
@@ -845,7 +874,7 @@ class MailBoxOverlay : public tsl::Gui {
         return false;
     }
 };
-u64 m_cheatCnt = 0; // WIP
+u64 m_cheatCnt = 0; 
 DmntCheatEntry *m_cheats = nullptr;
 bool refresh_cheats = true;
 
@@ -860,11 +889,16 @@ void getcheats(){ // WIP
         }
         refresh_cheats = false;
     };
-    if (m_show_only_enabled_cheats)
-        snprintf(CheatsLabelsStr, sizeof BookmarkLabels, "Enabled Cheats\n");
-    else
-        snprintf(CheatsLabelsStr, sizeof BookmarkLabels, "All Available Cheats\n");
-    snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
+    if (m_show_only_enabled_cheats) {
+        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "   Enabled Cheats\n");
+        snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
+    } else {
+        total_opcode = 0;
+        for (u8 i = 0; i < m_cheatCnt; i++)
+            if (m_cheats[i].enabled) total_opcode += m_cheats[i].definition.num_opcodes;
+        snprintf(CheatsCursor, sizeof CheatsCursor, "Cheats %d/%ld opcode = %d Total opcode = %d/%d\n", m_cheat_index + m_cheatlist_offset + 1, m_cheatCnt, m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes, total_opcode, MaximumProgramOpcodeCount);
+        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "\n");
+    };
     snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
 
     for (u8 line = 0; line < NUM_cheats; line++) {
@@ -875,12 +909,22 @@ void getcheats(){ // WIP
         };
         if ((line + m_cheatlist_offset) >= m_cheatCnt)
             break;
-        {
-            snprintf(ss, sizeof ss, "%s\n", m_cheats[line + m_cheatlist_offset].definition.readable_name);
+        {   
+            char namestr[100] = "";         
+            int buttoncode = m_cheats[line + m_cheatlist_offset].definition.opcodes[0];
+            if ((buttoncode & 0xF0000000) == 0x80000000)
+                for (u32 i = 0; i < buttonCodes.size(); i++) {
+                    if ((buttoncode & buttonCodes[i]) == buttonCodes[i])
+                        strcat(namestr, buttonNames[i].c_str());
+                }
+            snprintf(ss, sizeof ss, "%s%s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name);
             strcat(CheatsLabelsStr, ss);
             snprintf(ss, sizeof ss, "%s\n", ((m_cheat_index == line) && (!m_show_only_enabled_cheats) && !m_cursor_on_bookmark) ? "\uE019" : "");
             strcat(CheatsCursor, ss);
-            snprintf(ss, sizeof ss, "%s\n", (m_cheats[line + m_cheatlist_offset].enabled) ? "on" : "off");
+            if (m_show_only_enabled_cheats)
+                snprintf(ss, sizeof ss, "\n");
+            else
+                snprintf(ss, sizeof ss, "%s\n", (m_cheats[line + m_cheatlist_offset].enabled) ? "on" : "off");
             strcat(CheatsEnableStr, ss);
         }
     };
@@ -917,7 +961,7 @@ class BookmarkOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "Hold Left Stick & Right Stick to Exit\n");
+        snprintf(BookmarkLabels, sizeof BookmarkLabels, "   Hold Left Stick & Right Stick to Exit\n");
         snprintf(Variables, sizeof Variables, "\n");
         snprintf(Cursor, sizeof Cursor, "\n");
         snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
@@ -1277,13 +1321,13 @@ class SetMultiplierOverlay : public tsl::Gui {
             // else
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
 
-            renderer->drawString(BookmarkLabels, false, 5, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(BookmarkLabels, false, 65, 15, 15, renderer->a(0xFFFF));
 
-            renderer->drawString(Variables, false, 150, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(Variables, false, 210, 15, 15, renderer->a(0xFFFF));
 
-            renderer->drawString(Cursor, false, 240, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(Cursor, false, 5, 15, 15, renderer->a(0xFFFF));
 
-            renderer->drawString(MultiplierStr, false, 260, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(MultiplierStr, false, 25, 15, 15, renderer->a(0xFFFF));
         });
 
         rootFrame->setContent(Status);
@@ -1298,9 +1342,9 @@ class SetMultiplierOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\uE092\uE093 \uE0A4 \uE0A5 change      \uE0A1 exit\n");
+        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n");
         snprintf(Variables, sizeof Variables, "\n");
-        snprintf(Cursor, sizeof Cursor, "\n");
+        snprintf(Cursor, sizeof Cursor, "\uE092\uE093    \uE0A4 \uE0A5 change     \uE0A0 toggle     \uE0A1 exit\n");
         snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
@@ -1383,7 +1427,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         }
         // print cheats
         m_show_only_enabled_cheats = false;
-        m_cheatlist_offset = 0;
+        // m_cheatlist_offset = 0;
         getcheats();
         strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
         strncat(Cursor,CheatsCursor, sizeof Cursor-1);
@@ -1401,15 +1445,25 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (m_cursor_on_bookmark) {
                 if (m_index > 0) m_index--;
             } else {
-                if (m_cheat_index > 0) m_cheat_index--;
+                if (m_cheat_index > 0)
+                    m_cheat_index--;
+                else {
+                    if (m_cheatlist_offset > 0)
+                        m_cheatlist_offset--;
+                    else
+                        m_cursor_on_bookmark = true;
+                }
             }
             return true;
         };
         if (keysDown & HidNpadButton_AnyDown) {
             if (m_cursor_on_bookmark) {
                 if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) - 1))) m_index++;
+                else m_cursor_on_bookmark = false;
             } else {
                 if ((m_cheat_index < NUM_cheats - 1) && ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)) m_cheat_index++;
+                else if ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)
+                    m_cheatlist_offset++;
             }
             return true;
         };
@@ -1464,7 +1518,12 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         };
         if ((keysDown & HidNpadButton_A) && !m_cursor_on_bookmark) {
-            dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+            if (m_cheats[m_cheat_index + m_cheatlist_offset].enabled)
+                dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+            else {
+                if (m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes + total_opcode <= MaximumProgramOpcodeCount)
+                    dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+            }
             refresh_cheats = true;
             return true;
         }
@@ -1536,7 +1595,7 @@ class MainMenu : public tsl::Gui {
         auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
         auto list = new tsl::elm::List();
 
-        auto Bookmark = new tsl::elm::ListItem("Show SE Bookmark");
+        auto Bookmark = new tsl::elm::ListItem("Activate Monitor");
         Bookmark->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
                 // StartThreads();
@@ -1553,7 +1612,7 @@ class MainMenu : public tsl::Gui {
         });
         list->addItem(Bookmark);
 
-        auto SetMultiplier = new tsl::elm::ListItem("Set Bookmark Value Multiplier");
+        auto SetMultiplier = new tsl::elm::ListItem("Settings");
         SetMultiplier->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
                 // StartThreads();
