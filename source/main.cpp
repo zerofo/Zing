@@ -894,7 +894,6 @@ void getcheats(){ // WIP
             dmntchtGetCheats(m_cheats, m_cheatCnt, 0, &m_cheatCnt);
         } else {
             snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "No Cheats available\n");
-            // snprintf(CheatsCursor, sizeof CheatsCursor, "No Cheats available\n");
             return;
         }
         refresh_cheats = false;
