@@ -610,12 +610,12 @@ static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80400000,
                                              0x80800000};
 static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
-char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41] = "";
-char Cursor[NUM_bookmark * 5 + NUM_cheats * 5] = "";
-char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5] = "";
-char CheatsLabelsStr[NUM_cheats * 0x41] = "";
-char CheatsCursor[NUM_cheats * 5] = "";
-char CheatsEnableStr[NUM_cheats * 5] = "";
+char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41 + 200] = "";
+char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 200] = "";
+char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 + 200] = "";
+char CheatsLabelsStr[NUM_cheats * 0x41 + 200] = "";
+char CheatsCursor[NUM_cheats * 5 + 200] = "";
+char CheatsEnableStr[NUM_cheats * 5 + 200] = "";
 bool m_show_only_enabled_cheats = true;
 bool m_cursor_on_bookmark = true;
 bool m_no_cheats = true;
@@ -638,6 +638,7 @@ searchValue_t m_oldvalue[NUM_bookmark] = {0};
 DmntCheatProcessMetadata metadata;
 // char Variables[NUM_bookmark*20];
 char bookmarkfilename[200] = "bookmark filename";
+u8 build_id[0x20];
 bool init_se_tools() {
     if (dmntchtCheck == 1) dmntchtCheck = dmntchtInitialize();
 
@@ -683,7 +684,6 @@ bool init_se_tools() {
         std::memcpy(metadata.main_nso_build_id, proc_module->build_id, sizeof((metadata.main_nso_build_id)));
     };
     // dmntchtGetCheatProcessMetadata(&metadata);
-    u8 build_id[0x20];
     memcpy(build_id, metadata.main_nso_build_id, 0x20);
 
     // if (!(m_debugger->m_dmnt)) {m_debugger->attachToProcess();m_debugger->resume();}
@@ -1361,10 +1361,11 @@ class SetMultiplierOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n");
-        snprintf(Variables, sizeof Variables, "\n");
-        snprintf(Cursor, sizeof Cursor, "\uE092\uE093    \uE0A4 \uE0A5 change     \uE0A0 toggle     \uE0A1 exit\n");
-        snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
+        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
+        snprintf(Variables, sizeof Variables, "\n\n");
+        snprintf(Cursor, sizeof Cursor, "TID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X  PID %03ld\n\uE092\uE093    \uE0A4 \uE0A5 change     \uE0A0 toggle     \uE0A1 exit\n",
+                 metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7], metadata.process_id);
+        snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
         // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
