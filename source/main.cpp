@@ -190,6 +190,7 @@ void CheckIfGameRunning(void *) {
     }
 }
 
+void DoMultiplier();
 //Check for input outside of FPS limitations
 void CheckButtons(void *) {
     padInitializeAny(&pad);
@@ -216,7 +217,9 @@ void CheckButtons(void *) {
             Bstate.B += 2;
         };
 
-        svcSleepThread(100'000'000);
+        DoMultiplier();
+
+        svcSleepThread(50'000'000); 
     }
 }
 
@@ -333,17 +336,17 @@ void CheckCore3(void *) {
 
 //Start reading all stats
 void StartThreads() {
-    threadCreate(&t0, CheckCore0, NULL, NULL, 0x100, 0x10, 0);
-    threadCreate(&t1, CheckCore1, NULL, NULL, 0x100, 0x10, 1);
-    threadCreate(&t2, CheckCore2, NULL, NULL, 0x100, 0x10, 2);
-    threadCreate(&t3, CheckCore3, NULL, NULL, 0x100, 0x10, 3);
-    threadCreate(&t4, Misc, NULL, NULL, 0x100, 0x3F, -2);
+    // threadCreate(&t0, CheckCore0, NULL, NULL, 0x100, 0x10, 0);
+    // threadCreate(&t1, CheckCore1, NULL, NULL, 0x100, 0x10, 1);
+    // threadCreate(&t2, CheckCore2, NULL, NULL, 0x100, 0x10, 2);
+    // threadCreate(&t3, CheckCore3, NULL, NULL, 0x100, 0x10, 3);
+    // threadCreate(&t4, Misc, NULL, NULL, 0x100, 0x3F, -2);
     threadCreate(&t5, CheckButtons, NULL, NULL, 0x400, 0x3F, -2);
-    threadStart(&t0);
-    threadStart(&t1);
-    threadStart(&t2);
-    threadStart(&t3);
-    threadStart(&t4);
+    // threadStart(&t0);
+    // threadStart(&t1);
+    // threadStart(&t2);
+    // threadStart(&t3);
+    // threadStart(&t4);
     threadStart(&t5);
 }
 
@@ -351,22 +354,22 @@ void StartThreads() {
 void CloseThreads() {
     threadexit = true;
     threadexit2 = true;
-    threadWaitForExit(&t0);
-    threadWaitForExit(&t1);
-    threadWaitForExit(&t2);
-    threadWaitForExit(&t3);
-    threadWaitForExit(&t4);
+    // threadWaitForExit(&t0);
+    // threadWaitForExit(&t1);
+    // threadWaitForExit(&t2);
+    // threadWaitForExit(&t3);
+    // threadWaitForExit(&t4);
     threadWaitForExit(&t5);
-    threadWaitForExit(&t6);
-    threadWaitForExit(&t7);
-    threadClose(&t0);
-    threadClose(&t1);
-    threadClose(&t2);
-    threadClose(&t3);
-    threadClose(&t4);
+    // threadWaitForExit(&t6);
+    // threadWaitForExit(&t7);
+    // threadClose(&t0);
+    // threadClose(&t1);
+    // threadClose(&t2);
+    // threadClose(&t3);
+    // threadClose(&t4);
     threadClose(&t5);
-    threadClose(&t6);
-    threadClose(&t7);
+    // threadClose(&t6);
+    // threadClose(&t7);
     threadexit = false;
     threadexit2 = false;
 }
@@ -621,6 +624,7 @@ bool m_cursor_on_bookmark = true;
 bool m_no_cheats = true;
 bool m_no_bookmarks = true;
 bool m_game_not_running = true;
+bool m_on_show = false;
 u8 m_displayed_bookmark_lines = 0;
 u8 m_displayed_cheat_lines = 0;
 u8 m_index = 0;
@@ -703,6 +707,78 @@ void cleanup_se_tools() {
     // delete m_memoryDump;
     return;
 };
+void DoMultiplier() {
+    for (u8 line = 0; line < NUM_bookmark; line++) {
+        if ((line + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t)))
+            break;
+        bookmark_t bookmark;
+        {
+            u64 address = 0;
+            m_AttributeDumpBookmark->getData((line + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+            if (bookmark.magic != 0x1289) bookmark.multiplier = 1;
+            if (bookmark.multiplier==1) continue;
+            if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
+            {
+                bool updateaddress = true;
+                u64 nextaddress = metadata.main_nso_extents.base;  //m_mainBaseAddr;
+                for (int z = bookmark.pointer.depth; z >= 0; z--) {
+                    nextaddress += bookmark.pointer.offset[z];
+                    MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
+                    if (meminfo.perm == Perm_Rw)
+                        if (z == 0) {
+                            if (address == nextaddress)
+                                updateaddress = false;
+                            else {
+                                address = nextaddress;
+                            }
+                        } else
+                            m_debugger->readMemory(&nextaddress, ((m_32bitmode) ? sizeof(u32) : sizeof(u64)), nextaddress);
+                    else {
+                        updateaddress = false;
+                        break;
+                    }
+                }
+            } else {
+                address = ((bookmark.heap) ? ((m_debugger->queryMemory(metadata.heap_extents.base).type == 0) ? metadata.alias_extents.base
+                                                                                                              : metadata.heap_extents.base)
+                                           : metadata.main_nso_extents.base) +
+                          bookmark.offset;
+            };
+            searchValue_t value = {0};
+            m_debugger->readMemory(&value, dataTypeSizes[bookmark.type], address);
+            if ((m_oldvalue[line]._u64 == 0) || (m_oldvalue[line]._s64 > value._s64))
+                m_oldvalue[line]._s64 = value._s64;
+            else if (bookmark.multiplier != 1) {
+                switch (bookmark.type) {
+                    case SEARCH_TYPE_FLOAT_32BIT:
+                        if (m_oldvalue[line]._f32 < value._f32) {
+                            m_oldvalue[line]._f32 = (value._f32 - m_oldvalue[line]._f32) * bookmark.multiplier + m_oldvalue[line]._f32;
+                        };
+                        break;
+                    case SEARCH_TYPE_FLOAT_64BIT:
+                        if (m_oldvalue[line]._f64 < value._f64) {
+                            m_oldvalue[line]._f64 = (value._f64 - m_oldvalue[line]._f64) * bookmark.multiplier + m_oldvalue[line]._f64;
+                        };
+                        break;
+                    case SEARCH_TYPE_UNSIGNED_8BIT:
+                    case SEARCH_TYPE_UNSIGNED_16BIT:
+                    case SEARCH_TYPE_UNSIGNED_32BIT:
+                    case SEARCH_TYPE_UNSIGNED_64BIT:
+                        if (m_oldvalue[line]._u64 < value._u64) {
+                            m_oldvalue[line]._u64 = (value._u64 - m_oldvalue[line]._u64) * bookmark.multiplier + m_oldvalue[line]._u64;
+                        };
+                        break;
+                    default:
+                        if (m_oldvalue[line]._s64 < value._s64) {
+                            m_oldvalue[line]._s64 = (value._s64 - m_oldvalue[line]._s64) * bookmark.multiplier + m_oldvalue[line]._s64;
+                        };
+                        break;
+                };
+                m_debugger->writeMemory(&(m_oldvalue[line]), dataTypeSizes[bookmark.type], address);
+            };
+        }
+    }
+}
 static std::string _getAddressDisplayString(u64 address, Debugger *debugger, searchType_t searchType) {
     char ss[200];
 
@@ -968,6 +1044,10 @@ class BookmarkOverlay : public tsl::Gui {
 
     virtual void update() override {
         if (TeslaFPS == 60) TeslaFPS = 1;
+        if (m_on_show) {
+            tsl::hlp::requestForeground(false);
+            m_on_show = false;
+        }
         // Check if game process has been terminated
         dmntchtHasCheatProcess(&(m_debugger->m_dmnt));
         if (!m_debugger->m_dmnt) {
@@ -1841,8 +1921,13 @@ class MonitorOverlay : public tsl::Overlay {
 #endif
     }
 
-    virtual void onShow() override {}  // Called before overlay wants to change from invisible to visible state
-    virtual void onHide() override {}  // Called before overlay wants to change from visible to invisible state
+    virtual void onShow() override {
+        m_on_show = true;
+        CloseThreads();
+    }  // Called before overlay wants to change from invisible to visible state
+    virtual void onHide() override {
+        StartThreads();
+    }  // Called before overlay wants to change from visible to invisible state
 
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
         return initially<MainMenu>();  // Initial Gui to load. It's possible to pass arguments to it's constructor like this
