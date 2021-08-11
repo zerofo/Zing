@@ -1365,7 +1365,7 @@ class BookmarkOverlay : public tsl::Gui {
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
             // if (GameRunning == false)
             // fontsize = 20;
-            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth, fontsize * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
+            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth, (fontsize+3) * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
             // else
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
 
@@ -1789,11 +1789,11 @@ class SetMultiplierOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n");
-        snprintf(Variables, sizeof Variables, "\n\n\n");
-        snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 toggle, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n",
+        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n");
+        snprintf(Variables, sizeof Variables, "\n\n\n\n");
+        snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 toggle, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
                  m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
-        snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n");
+        snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n");
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
         // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
