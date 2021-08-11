@@ -840,6 +840,210 @@ void dumpcodetofile() {
         fclose(pfile);
     }
 }
+bool loadcheatsfromfile() {
+    snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+    
+    FILE *pfile;
+    pfile = fopen(m_cheatcode_path, "rb");
+    if (pfile != NULL) {
+        fseek(pfile, 0, SEEK_END);
+        size_t len = ftell(pfile);
+        u8 *s = new u8[len];
+        fseek(pfile, 0, SEEK_SET);
+        fread(s, 1, len, pfile);
+        DmntCheatEntry cheatentry;
+        cheatentry.definition.num_opcodes = 0;
+        cheatentry.enabled = false;
+        u8 label_len = 0;
+        size_t i = 0;
+        while (i < len) {
+            if (std::isspace(static_cast<unsigned char>(s[i]))) {
+                /* Just ignore whitespace. */
+                i++;
+            } else if (s[i] == '[') {
+                if (cheatentry.definition.num_opcodes != 0) {
+                    dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                }
+                /* Parse a normal cheat set to off */
+                cheatentry.definition.num_opcodes = 0;
+                cheatentry.enabled = false;
+                /* Extract name bounds. */
+                size_t j = i + 1;
+                while (s[j] != ']') {
+                    j++;
+                    if (j >= len) {
+                        return false;
+                    }
+                }
+                /* s[i+1:j] is cheat name. */
+                const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
+                std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
+                cheatentry.definition.readable_name[cheat_name_len] = 0;
+                label_len = cheat_name_len;
+
+                /* Skip onwards. */
+                i = j + 1;
+            } else if (s[i] == '(') {
+                size_t j = i + 1;
+                while (s[j] != ')') {
+                    j++;
+                    if (j >= len) {
+                        return false;
+                    }
+                }
+                i = j + 1;
+            } else if (s[i] == '{') {
+                if (cheatentry.definition.num_opcodes != 0) {
+                    dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                }
+                /* We're parsing a master cheat. Turn it on */
+                cheatentry.definition.num_opcodes = 0;
+                cheatentry.enabled = true;
+                /* Extract name bounds */
+                size_t j = i + 1;
+                while (s[j] != '}') {
+                    j++;
+                    if (j >= len) {
+                        return false;
+                    }
+                }
+
+                /* s[i+1:j] is cheat name. */
+                const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
+                memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
+                cheatentry.definition.readable_name[cheat_name_len] = 0;
+                label_len = cheat_name_len;
+                strcpy(cheatentry.definition.readable_name, "master code");
+
+                /* Skip onwards. */
+                i = j + 1;
+            } else if (std::isxdigit(static_cast<unsigned char>(s[i]))) {
+                if (label_len == 0)
+                    return false;
+                /* Bounds check the opcode count. */
+                if (cheatentry.definition.num_opcodes >= sizeof(cheatentry.definition.opcodes) / 4) {
+                    if (cheatentry.definition.num_opcodes != 0) {
+                        dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                    }
+                    return false;
+                }
+
+                /* We're parsing an instruction, so validate it's 8 hex digits. */
+                for (size_t j = 1; j < 8; j++) {
+                    /* Validate 8 hex chars. */
+                    if (i + j >= len || !std::isxdigit(static_cast<unsigned char>(s[i + j]))) {
+                        if (cheatentry.definition.num_opcodes != 0) {
+                            dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                        }
+                        return false;
+                    }
+                }
+
+                /* Parse the new opcode. */
+                char hex_str[9] = {0};
+                std::memcpy(hex_str, &s[i], 8);
+                cheatentry.definition.opcodes[cheatentry.definition.num_opcodes++] = std::strtoul(hex_str, NULL, 16);
+
+                /* Skip onwards. */
+                i += 8;
+            } else {
+                /* Unexpected character encountered. */
+                if (cheatentry.definition.num_opcodes != 0) {
+                    dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                }
+                return false;
+            }
+        }
+        if (cheatentry.definition.num_opcodes != 0) {
+            dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+        }
+        fclose(pfile);  // take note that if any error occured above this isn't closed
+        return true;
+    }
+    return false;
+}
+DmntCheatEntry *GetCheatEntryByReadableName(const char *readable_name) {
+    /* Check all non-master cheats for match. */
+    for (size_t i = 0; i < m_cheatCnt; i++) {
+        if (std::strncmp(m_cheats[i].definition.readable_name, readable_name, sizeof(m_cheats[i].definition.readable_name)) == 0) {
+            return &m_cheats[i];
+        }
+    }
+    return nullptr;
+}
+bool ParseCheatToggles(const char *s, size_t len) {
+    size_t i = 0;
+    char cur_cheat_name[sizeof(DmntCheatDefinition::readable_name)];
+    char toggle[8];
+    while (i < len) {
+        if (std::isspace(static_cast<unsigned char>(s[i]))) {
+            /* Just ignore whitespace. */
+            i++;
+        } else if (s[i] == '[') {
+            /* Extract name bounds. */
+            size_t j = i + 1;
+            while (s[j] != ']') {
+                j++;
+                if (j >= len) {
+                    return false;
+                }
+            }
+            /* s[i+1:j] is cheat name. */
+            const size_t cheat_name_len = std::min(j - i - 1, sizeof(cur_cheat_name));
+            std::memcpy(cur_cheat_name, &s[i + 1], cheat_name_len);
+            cur_cheat_name[cheat_name_len] = 0;
+            /* Skip onwards. */
+            i = j + 1;
+            /* Skip whitespace. */
+            while (std::isspace(static_cast<unsigned char>(s[i]))) {
+                i++;
+            }
+            /* Parse whether to toggle. */
+            j = i + 1;
+            while (!std::isspace(static_cast<unsigned char>(s[j]))) {
+                j++;
+                if (j >= len || (j - i) >= sizeof(toggle)) {
+                    return false;
+                }
+            }
+            /* s[i:j] is toggle. */
+            const size_t toggle_len = (j - i);
+            std::memcpy(toggle, &s[i], toggle_len);
+            toggle[toggle_len] = 0;
+            /* Allow specifying toggle for not present cheat. */
+            DmntCheatEntry *entry = GetCheatEntryByReadableName(cur_cheat_name);
+            if (entry != nullptr) {
+                if (strcasecmp(toggle, "1") == 0 || strcasecmp(toggle, "true") == 0 || strcasecmp(toggle, "on") == 0) {
+                    if (entry->enabled != true) dmntchtToggleCheat(entry->cheat_id);
+                    entry->enabled = true;
+                } else if (strcasecmp(toggle, "0") == 0 || strcasecmp(toggle, "false") == 0 || strcasecmp(toggle, "off") == 0) {
+                    if (entry->enabled != false) dmntchtToggleCheat(entry->cheat_id);
+                    entry->enabled = false;
+                }
+            }
+            /* Skip onwards. */
+            i = j + 1;
+        } else {
+            /* Unexpected character encountered. */
+            return false;
+        }
+    }
+    return true;
+}
+void loadtoggles() {
+    snprintf(m_toggle_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/toggles.txt", metadata.title_id);
+    FILE *pfile;
+    pfile = fopen(m_toggle_path, "rb");
+    if (pfile != NULL) {
+        fseek(pfile, 0, SEEK_END);
+        size_t len = ftell(pfile);
+        char *s = new char[len];
+        fseek(pfile, 0, SEEK_SET);
+        fread(s, 1, len, pfile);
+        ParseCheatToggles(s, len);
+        fclose(pfile);
+    };
+};
 void DoMultiplier() {
     for (u8 line = 0; line < NUM_bookmark; line++) {
         if ((line + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t)))
@@ -1949,6 +2153,25 @@ class MainMenu : public tsl::Gui { // WIP
             return false;
         });
         list->addItem(SetMultiplier);
+
+        auto LoadCheats = new tsl::elm::ListItem("reload Cheats");
+        LoadCheats->setClickListener([](uint64_t keys) {
+            if (keys & HidNpadButton_A) {
+                init_se_tools();
+                refresh_cheats = true;
+                getcheats();
+                for (u8 i = 0; i < m_cheatCnt; i++) {
+                    dmntchtRemoveCheat(m_cheats[i].cheat_id);
+                };
+                loadcheatsfromfile();
+                loadtoggles();
+                refresh_cheats = true;
+                cleanup_se_tools();
+                return true;
+            }
+            return false;
+        });
+        list->addItem(LoadCheats);
 
         // auto MailBox = new tsl::elm::ListItem("MailBox");
         // MailBox->setClickListener([](uint64_t keys) {
