@@ -588,6 +588,7 @@ u32 total_opcode = 0;
 #define MaxCheatCount 0x80
 #define MaxOpcodes 0x100 // uint32_t opcodes[0x100]
 #define MaximumProgramOpcodeCount 0x400
+u8 fontsize = 15;
 static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80000002,
                                              0x80000004,
@@ -1026,15 +1027,16 @@ class BookmarkOverlay : public tsl::Gui {
 
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
             // if (GameRunning == false)
-            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 15 * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
+            // fontsize = 20;
+            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth, fontsize * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
             // else
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
 
-            renderer->drawString(BookmarkLabels, false, 45, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(BookmarkLabels, false, 45, fontsize, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(Variables, false, 190, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(Variables, false, 190, fontsize, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(MultiplierStr, false, 5, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(MultiplierStr, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
         });
 
         rootFrame->setContent(Status);
@@ -1061,7 +1063,7 @@ class BookmarkOverlay : public tsl::Gui {
         snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n");
         snprintf(Variables, sizeof Variables, "\n");
         snprintf(Cursor, sizeof Cursor, "\n");
-        snprintf(MultiplierStr, sizeof MultiplierStr, "Hold Left Stick & Right Stick to Exit\n");
+        snprintf(MultiplierStr, sizeof MultiplierStr, "\uE0A6+\uE0A4/\uE0A5 Font size  \uE0A6+\uE0A1 Exit\n");
         m_displayed_bookmark_lines = 0;
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
@@ -1193,6 +1195,14 @@ class BookmarkOverlay : public tsl::Gui {
             // CloseThreads();
             cleanup_se_tools();
             tsl::goBack();
+            return true;
+        }
+        if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
+            fontsize++;
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && keysHeld & HidNpadButton_ZL) {
+            fontsize--;
             return true;
         }
         return false;
@@ -1416,17 +1426,18 @@ class SetMultiplierOverlay : public tsl::Gui {
 
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
             // if (GameRunning == false)
+            // fontsize = 15;
             renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth , tsl::cfg::FramebufferHeight, a(0x7111));
             // else
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
 
-            renderer->drawString(BookmarkLabels, false, 65, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(BookmarkLabels, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(Variables, false, 210, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(Variables, false, 210, fontsize, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(Cursor, false, 5, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(Cursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(MultiplierStr, false, 25, 15, 15, renderer->a(0xFFFF));
+            renderer->drawString(MultiplierStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
         });
 
         rootFrame->setContent(Status);
@@ -1443,7 +1454,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         // strcat(BookmarkLabels,bookmarkfilename);
         snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
         snprintf(Variables, sizeof Variables, "\n\n");
-        snprintf(Cursor, sizeof Cursor, "TID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X  PID %03ld\n\uE092\uE093    \uE0A4 \uE0A5 change     \uE0A0 toggle     \uE0A1 exit\n",
+        snprintf(Cursor, sizeof Cursor, "TID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X  PID %03ld\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 toggle, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n",
                  metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7], metadata.process_id);
         snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
         // BookmarkLabels[0]=0;
@@ -1536,6 +1547,14 @@ class SetMultiplierOverlay : public tsl::Gui {
     };
     // WIP Setting
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+        if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
+            fontsize++;
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && keysHeld & HidNpadButton_ZL) {
+            fontsize--;
+            return true;
+        }
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             // CloseThreads();
             cleanup_se_tools();
