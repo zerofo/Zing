@@ -584,11 +584,14 @@ struct bookmark_t {
 };
 #define NUM_bookmark 10
 #define NUM_cheats 20
+#define NUM_combokey 3
 u32 total_opcode = 0;
 #define MaxCheatCount 0x80
 #define MaxOpcodes 0x100 // uint32_t opcodes[0x100]
 #define MaximumProgramOpcodeCount 0x400
 u8 fontsize = 15;
+bool m_editCheat = false;
+u8 keycount;
 static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80000002,
                                              0x80000004,
@@ -1005,6 +1008,9 @@ void getcheats(){ // WIP
                     if ((buttoncode & buttonCodes[i]) == buttonCodes[i])
                         strcat(namestr, buttonNames[i].c_str());
                 }
+            if ((m_cheat_index == line) && (m_editCheat)) {
+                snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
+            } else
             snprintf(ss, sizeof ss, "%s%s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name);
             strcat(CheatsLabelsStr, ss);
             m_displayed_cheat_lines++;
@@ -1547,6 +1553,55 @@ class SetMultiplierOverlay : public tsl::Gui {
     };
     // WIP Setting
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+        static u32 keycode;
+        if (m_editCheat) {
+            if (keysDown == 0) return false;
+            keycode = keycode | keysDown;  // Waitforkey_menu will send keycode in index to this buttonid;
+            keycount--;
+            if (keycount > 0) return true;
+            m_editCheat = false;
+            {
+                // edit cheat
+                if ((m_cheats[m_cheat_index].definition.opcodes[0] & 0xF0000000) == 0x80000000) {
+                    m_cheats[m_cheat_index].definition.opcodes[0] = keycode;
+                } else {
+                    if (m_cheats[m_cheat_index].definition.num_opcodes < 0x100 + 2) {
+                        m_cheats[m_cheat_index].definition.opcodes[m_cheats[m_cheat_index].definition.num_opcodes + 1] = 0x20000000;
+
+                        for (u32 i = m_cheats[m_cheat_index].definition.num_opcodes; i > 0; i--) {
+                            m_cheats[m_cheat_index].definition.opcodes[i] = m_cheats[m_cheat_index].definition.opcodes[i - 1];
+                        }
+                        m_cheats[m_cheat_index].definition.num_opcodes += 2;
+                        m_cheats[m_cheat_index].definition.opcodes[0] = keycode;
+                    }
+                }
+                // modify cheat
+                dmntchtRemoveCheat(m_cheats[m_cheat_index].cheat_id);
+                u32 outid = 0;
+                dmntchtAddCheat(&(m_cheats[m_cheat_index].definition), m_cheats[m_cheat_index].enabled, &outid);
+                refresh_cheats = true;
+            };
+            return true;
+        };
+        if (keysDown & HidNpadButton_StickR && !(keysHeld & HidNpadButton_ZL)) { // programe key combo
+            keycode = 0x80000000;
+            keycount = NUM_combokey;
+            m_editCheat = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_StickR && keysHeld & HidNpadButton_ZL) { // remove key combo
+            if ((m_cheats[m_cheat_index].definition.opcodes[0] & 0xF0000000) == 0x80000000 && (m_cheats[m_cheat_index].definition.opcodes[m_cheats[m_cheat_index].definition.num_opcodes - 1] & 0xF0000000) == 0x20000000) {
+                for (u32 i = 0; i < m_cheats[m_cheat_index].definition.num_opcodes - 1; i++) {
+                    m_cheats[m_cheat_index].definition.opcodes[i] = m_cheats[m_cheat_index].definition.opcodes[i + 1];
+                };
+                m_cheats[m_cheat_index].definition.num_opcodes -= 2;
+                dmntchtRemoveCheat(m_cheats[m_cheat_index].cheat_id);
+                u32 outid = 0;
+                dmntchtAddCheat(&(m_cheats[m_cheat_index].definition), m_cheats[m_cheat_index].enabled, &outid);
+                refresh_cheats = true;
+            }
+            return true;
+        }
         if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
             fontsize++;
             return true;
