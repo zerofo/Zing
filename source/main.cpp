@@ -592,6 +592,14 @@ u32 total_opcode = 0;
 u8 fontsize = 15;
 bool m_editCheat = false;
 u8 keycount;
+Result rc;
+std::string m_titleName = "", m_titleName2 = "", m_versionString = "";
+char m_cheatcode_path[128];
+char m_toggle_path[128];
+u64 m_cheatCnt = 0; 
+DmntCheatEntry *m_cheats = nullptr;
+bool refresh_cheats = true;
+bool save_code_to_file = false;
 static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80000002,
                                              0x80000004,
@@ -618,7 +626,7 @@ static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80800000};
 static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
 char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41 + 200] = "";
-char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 200] = "";
+char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 500] = "";
 char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 + 200] = "";
 char CheatsLabelsStr[NUM_cheats * 0x41 + 200] = "";
 char CheatsCursor[NUM_cheats * 5 + 200] = "";
@@ -653,8 +661,22 @@ bool init_se_tools() {
     m_debugger = new Debugger();
     dmntchtForceOpenCheatProcess();
     dmntchtHasCheatProcess(&(m_debugger->m_dmnt));
-    if (m_debugger->m_dmnt)
+    if (m_debugger->m_dmnt) {
         dmntchtGetCheatProcessMetadata(&metadata);
+            size_t appControlDataSize = 0;
+            static NsApplicationControlData m_appControlData = {};
+            NacpLanguageEntry *languageEntry = nullptr;
+            std::memset(&m_appControlData, 0x00, sizeof(NsApplicationControlData));
+            rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, metadata.title_id & 0xFFFFFFFFFFFFFFF0, &m_appControlData, sizeof(NsApplicationControlData), &appControlDataSize);
+            if (rc == 0) {
+                rc = nsGetApplicationDesiredLanguage(&m_appControlData.nacp, &languageEntry);
+                if (languageEntry != nullptr) {
+                    m_titleName = std::string(languageEntry->name);
+                    // m_titleName2 = std::string(languageEntry[1].name);
+                };
+                m_versionString = std::string(m_appControlData.nacp.display_version);
+            };
+    }
     else {
         return false;
         LoaderModuleInfo proc_modules[2] = {};
@@ -711,6 +733,113 @@ void cleanup_se_tools() {
     // delete m_memoryDump;
     return;
 };
+void dumpcodetofile() {
+    FILE *pfile;
+    char tmp[1000];
+    snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+    snprintf(m_toggle_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/toggles.txt", metadata.title_id);
+    pfile = fopen(m_cheatcode_path, "w");
+    if (pfile != NULL) {
+        snprintf(tmp, 1000, "[Breeze Overlay %s %s %s TID: %016lX BID: %02X%02X%02X%02X%02X%02X%02X%02X]\n\n", APP_VERSION, m_titleName.c_str(), m_versionString.c_str(), metadata.title_id,
+                 build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        fputs(tmp, pfile);
+        for (u32 i = 0; i < m_cheatCnt; i++) {
+            if ((i == 0) && (m_cheats[0].cheat_id == 0))
+                snprintf(tmp, 1000, "{%s}\n", m_cheats[i].definition.readable_name);
+            else
+                snprintf(tmp, 1000, "[%s]\n", m_cheats[i].definition.readable_name);
+            fputs(tmp, pfile);
+            for (u32 j = 0; j < m_cheats[i].definition.num_opcodes; j++) {
+                u16 opcode = (m_cheats[i].definition.opcodes[j] >> 28) & 0xF;
+                u8 T = (m_cheats[i].definition.opcodes[j] >> 24) & 0xF;
+                if ((opcode == 9) && (((m_cheats[i].definition.opcodes[j] >> 8) & 0xF) == 0)) {
+                    snprintf(tmp, 1000, "%08X\n", m_cheats[i].definition.opcodes[j]);
+                    fputs(tmp, pfile);
+                    continue;
+                }
+                if (opcode == 0xC) {
+                    opcode = (m_cheats[i].definition.opcodes[j] >> 24) & 0xFF;
+                    T = (m_cheats[i].definition.opcodes[j] >> 20) & 0xF;
+                    u8 X = (m_cheats[i].definition.opcodes[j] >> 8) & 0xF;
+                    if (opcode == 0xC0) {
+                        opcode = opcode * 16 + X;
+                    }
+                }
+                if (opcode == 10) {
+                    u8 O = (m_cheats[i].definition.opcodes[j] >> 8) & 0xF;
+                    if (O == 2 || O == 4 || O == 5)
+                        T = 8;
+                    else
+                        T = 4;
+                }
+                switch (opcode) {
+                    case 0:
+                    case 1:
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j++]);
+                        fputs(tmp, pfile);
+                        // 3+1
+                    case 9:
+                    case 0xC04:
+                        // 2+1
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j++]);
+                        fputs(tmp, pfile);
+                    case 3:
+                    case 10:
+                        // 1+1
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j]);
+                        fputs(tmp, pfile);
+                        if (T == 8 || (T == 0 && opcode == 3)) {
+                            j++;
+                            snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j]);
+                            fputs(tmp, pfile);
+                        }
+                        break;
+                    case 4:
+                    case 6:
+                        // 3
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j++]);
+                        fputs(tmp, pfile);
+                    case 5:
+                    case 7:
+                    case 0xC00:
+                    case 0xC02:
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j++]);
+                        fputs(tmp, pfile);
+                        // 2
+                    case 2:
+                    case 8:
+                    case 0xC1:
+                    case 0xC2:
+                    case 0xC3:
+                    case 0xC01:
+                    case 0xC03:
+                    case 0xC05:
+                    default:
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[j]);
+                        fputs(tmp, pfile);
+                        // 1
+                        break;
+                }
+                if (j >= (m_cheats[i].definition.num_opcodes))  // better to be ugly than to corrupt
+                {
+                    printf("error encountered in addcodetofile \n ");
+                    for (u32 k = 0; k < m_cheats[i].definition.num_opcodes; k++) {
+                        snprintf(tmp, sizeof(tmp), "%08X ", m_cheats[i].definition.opcodes[k++]);
+                        fputs(tmp, pfile);
+                    }
+                    snprintf(tmp, sizeof(tmp), "\n");
+                    fputs(tmp, pfile);
+                    break;
+                }
+                snprintf(tmp, sizeof(tmp), "\n");
+                fputs(tmp, pfile);
+            }
+            snprintf(tmp, sizeof(tmp), "\n");
+            fputs(tmp, pfile);
+        }
+        fclose(pfile);
+    }
+}
 void DoMultiplier() {
     for (u8 line = 0; line < NUM_bookmark; line++) {
         if ((line + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t)))
@@ -960,9 +1089,7 @@ class MailBoxOverlay : public tsl::Gui {
         return false;
     }
 };
-u64 m_cheatCnt = 0; 
-DmntCheatEntry *m_cheats = nullptr;
-bool refresh_cheats = true;
+
 
 void getcheats(){ // WIP
     char ss[200] = "";
@@ -1458,11 +1585,11 @@ class SetMultiplierOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
-        snprintf(Variables, sizeof Variables, "\n\n");
-        snprintf(Cursor, sizeof Cursor, "TID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X  PID %03ld\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 toggle, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n",
-                 metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7], metadata.process_id);
-        snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
+        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n");
+        snprintf(Variables, sizeof Variables, "\n\n\n");
+        snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 toggle, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n",
+                 m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n");
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
         // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
@@ -1587,6 +1714,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             keycode = 0x80000000;
             keycount = NUM_combokey;
             m_editCheat = true;
+            save_code_to_file = true;
             return true;
         }
         if (keysDown & HidNpadButton_StickR && keysHeld & HidNpadButton_ZL) { // remove key combo
@@ -1600,6 +1728,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 dmntchtAddCheat(&(m_cheats[m_cheat_index].definition), m_cheats[m_cheat_index].enabled, &outid);
                 refresh_cheats = true;
             }
+            save_code_to_file = true;
             return true;
         }
         if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
@@ -1727,6 +1856,8 @@ class SetMultiplierOverlay : public tsl::Gui {
         }
         if (keysDown & HidNpadButton_B) {
             // CloseThreads();
+            if (save_code_to_file) dumpcodetofile();
+            save_code_to_file = false;
             cleanup_se_tools();
             tsl::goBack();
             return true;
@@ -1936,6 +2067,7 @@ class MonitorOverlay : public tsl::Overlay {
    public:
     virtual void initServices() override {
         dmntchtCheck = dmntchtInitialize();
+        rc = nsInitialize();
         //Initialize services
         if (R_SUCCEEDED(smInitialize())) {
             if (hosversionAtLeast(8, 0, 0))
@@ -1982,6 +2114,7 @@ class MonitorOverlay : public tsl::Overlay {
         //Exit services
         svcCloseHandle(debug);
         dmntchtExit();
+        nsExit();
         clkrstExit();
         pcvExit();
         tsExit();
