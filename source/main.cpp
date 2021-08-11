@@ -193,29 +193,29 @@ void CheckIfGameRunning(void *) {
 void DoMultiplier();
 //Check for input outside of FPS limitations
 void CheckButtons(void *) {
-    padInitializeAny(&pad);
-    static uint64_t kHeld = padGetButtons(&pad);  // hidKeysHeld(CONTROLLER_P1_AUTO);
+    // padInitializeAny(&pad);
+    // static uint64_t kHeld = padGetButtons(&pad);  // hidKeysHeld(CONTROLLER_P1_AUTO);
     while (threadexit == false) {
-        padUpdate(&pad);
-        kHeld = padGetButtons(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
-        if ((kHeld & HidNpadButton_ZR) && (kHeld & HidNpadButton_R)) {
-            if (kHeld & HidNpadButton_Down) {
-                TeslaFPS = 1;
-                refreshrate = 1;
-                systemtickfrequency = 19200000;
-            } else if (kHeld & HidNpadButton_Up) {
-                TeslaFPS = 5;
-                refreshrate = 5;
-                systemtickfrequency = 3840000;
-            }
-        }
-        if ((kHeld & HidNpadButton_ZR) && (kDown & HidNpadButton_A)) {
-            Bstate.A += 2;
-        };
-        if ((kHeld & HidNpadButton_ZR) && (kDown & HidNpadButton_B)) {
-            Bstate.B += 2;
-        };
+        // padUpdate(&pad);
+        // kHeld = padGetButtons(&pad);
+        // u64 kDown = padGetButtonsDown(&pad);
+        // if ((kHeld & HidNpadButton_ZR) && (kHeld & HidNpadButton_R)) {
+        //     if (kHeld & HidNpadButton_Down) {
+        //         TeslaFPS = 1;
+        //         refreshrate = 1;
+        //         systemtickfrequency = 19200000;
+        //     } else if (kHeld & HidNpadButton_Up) {
+        //         TeslaFPS = 5;
+        //         refreshrate = 5;
+        //         systemtickfrequency = 3840000;
+        //     }
+        // }
+        // if ((kHeld & HidNpadButton_ZR) && (kDown & HidNpadButton_A)) {
+        //     Bstate.A += 2;
+        // };
+        // if ((kHeld & HidNpadButton_ZR) && (kDown & HidNpadButton_B)) {
+        //     Bstate.B += 2;
+        // };
 
         DoMultiplier();
 
@@ -1390,7 +1390,7 @@ class BookmarkOverlay : public tsl::Gui {
         // Check if game process has been terminated
         dmntchtHasCheatProcess(&(m_debugger->m_dmnt));
         if (!m_debugger->m_dmnt) {
-            cleanup_se_tools();
+            // cleanup_se_tools();
             tsl::goBack();
         };
         // snprintf(FPS_var_compressed_c, sizeof FPS_compressed_c, "%u\n%2.2f", FPS, FPSavg);
@@ -1524,13 +1524,13 @@ class BookmarkOverlay : public tsl::Gui {
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             // CloseThreads();
-            cleanup_se_tools();
+            // cleanup_se_tools();
             tsl::goBack();
             return true;
         };
         if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
             // CloseThreads();
-            cleanup_se_tools();
+            // cleanup_se_tools();
             tsl::goBack();
             return true;
         }
@@ -1945,7 +1945,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         }
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             // CloseThreads();
-            cleanup_se_tools();
+            // cleanup_se_tools();
             tsl::goBack();
             return true;
         };
@@ -2062,7 +2062,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             // CloseThreads();
             if (save_code_to_file) dumpcodetofile();
             save_code_to_file = false;
-            cleanup_se_tools();
+            // cleanup_se_tools();
             tsl::goBack();
             return true;
         }
@@ -2081,7 +2081,7 @@ class SetMultiplierOverlay2 : public tsl::Gui {
         Bookmark->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
                 // StartThreads();
-                init_se_tools();
+                // init_se_tools();
                 TeslaFPS = 1;
                 refreshrate = 1;
                 alphabackground = 0x0;
@@ -2119,12 +2119,12 @@ class MainMenu : public tsl::Gui { // WIP
     virtual tsl::elm::Element *createUI() override {
         auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
         auto list = new tsl::elm::List();
-
+        if (m_debugger->m_dmnt) {
         auto Bookmark = new tsl::elm::ListItem("Activate Monitor");
         Bookmark->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
                 // StartThreads();
-                if (!init_se_tools()) return true;
+                // if (!init_se_tools()) return true;
                 TeslaFPS = 20;
                 refreshrate = 1;
                 alphabackground = 0x0;
@@ -2141,7 +2141,7 @@ class MainMenu : public tsl::Gui { // WIP
         SetMultiplier->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
                 // StartThreads();
-                if (!init_se_tools()) return true;
+                // if (!init_se_tools()) return true;
                 TeslaFPS = 50;
                 refreshrate = 1;
                 alphabackground = 0x0;
@@ -2157,22 +2157,27 @@ class MainMenu : public tsl::Gui { // WIP
         auto LoadCheats = new tsl::elm::ListItem("reload Cheats");
         LoadCheats->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
-                init_se_tools();
+                // init_se_tools();
                 refresh_cheats = true;
                 getcheats();
                 for (u8 i = 0; i < m_cheatCnt; i++) {
                     dmntchtRemoveCheat(m_cheats[i].cheat_id);
                 };
                 loadcheatsfromfile();
+                refresh_cheats = true;
+                getcheats();
                 loadtoggles();
                 refresh_cheats = true;
-                cleanup_se_tools();
+                // cleanup_se_tools();
                 return true;
             }
             return false;
         });
         list->addItem(LoadCheats);
-
+        } else {
+            auto NoCheats = new tsl::elm::ListItem("Dmnt not attached");
+            list->addItem(NoCheats);
+        }
         // auto MailBox = new tsl::elm::ListItem("MailBox");
         // MailBox->setClickListener([](uint64_t keys) {
         // 	if (keys & HidNpadButton_A) {
@@ -2267,11 +2272,11 @@ class MainMenu : public tsl::Gui { // WIP
             refreshrate = 1;
             systemtickfrequency = 19200000;
         }
-        if (Bstate.A == 123) {
-            tsl::hlp::requestForeground(true);
-            Bstate.A += 100;
-        };
-        Bstate.B += 1;
+        // if (Bstate.A == 123) {
+        //     tsl::hlp::requestForeground(true);
+        //     Bstate.A += 100;
+        // };
+        // Bstate.B += 1;
     }
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         if (keysDown & HidNpadButton_B) {
@@ -2291,6 +2296,7 @@ class MonitorOverlay : public tsl::Overlay {
     virtual void initServices() override {
         dmntchtCheck = dmntchtInitialize();
         rc = nsInitialize();
+        init_se_tools();
         //Initialize services
         if (R_SUCCEEDED(smInitialize())) {
             if (hosversionAtLeast(8, 0, 0))
@@ -2335,6 +2341,7 @@ class MonitorOverlay : public tsl::Overlay {
         CloseThreads();
 
         //Exit services
+        cleanup_se_tools();
         svcCloseHandle(debug);
         dmntchtExit();
         nsExit();
