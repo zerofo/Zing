@@ -748,7 +748,7 @@ bool init_se_tools() {
     // if (!(m_debugger->m_dmnt)) {m_debugger->attachToProcess();m_debugger->resume();}
     // check and set m_32bitmode
 
-    snprintf(bookmarkfilename, 200, "%s/%02X%02X%02X%02X%02X%02X%02X%02X.dat", EDIZON_DIR,
+    snprintf(bookmarkfilename, 200, "%s/%02x%02x%02x%02x%02x%02x%02x%02x.dat", EDIZON_DIR,
              build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
 
     m_AttributeDumpBookmark = new MemoryDump(bookmarkfilename, DumpType::ADDR, false);
@@ -1226,6 +1226,29 @@ static std::string _getAddressDisplayString(u64 address, Debugger *debugger, sea
 
     return ss;  //.str();
 }
+bool deletebookmark(){
+    std::string old_bookmarkfilename = bookmarkfilename;
+    bookmark_t bookmark;
+    old_bookmarkfilename.replace((old_bookmarkfilename.length()-3),3,"old");
+    MemoryDump *m_old_AttributeDumpBookmark;
+    m_old_AttributeDumpBookmark = new MemoryDump(old_bookmarkfilename.c_str(), DumpType::ADDR, true);
+    for (size_t i = 0; i < m_AttributeDumpBookmark->size() / sizeof(bookmark_t); i++) {
+        {
+            m_AttributeDumpBookmark->getData(i * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+            m_old_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
+        }
+    }
+    delete m_AttributeDumpBookmark;
+    m_AttributeDumpBookmark = new MemoryDump(bookmarkfilename, DumpType::ADDR, true);
+    for (size_t i = 0; i < m_old_AttributeDumpBookmark->size() / sizeof(bookmark_t); i++) {
+        if (i != m_index + m_addresslist_offset) {
+            m_old_AttributeDumpBookmark->getData(i * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
+            m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
+        }
+    }
+    delete m_old_AttributeDumpBookmark;
+    return true;
+}
 bool addbookmark() {
     // printf("start adding cheat to bookmark\n");
     // m_cheatCnt
@@ -1381,30 +1404,31 @@ bool addbookmark() {
         m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
         strncat(m_err_str, "Adding pointer chain from cheat to bookmark\n", sizeof m_err_str -1);
     } 
-    // else {
-    //     if (bookmark.pointer.depth > 2)  // depth of 2 means only one pointer hit high chance of wrong positive
-    //     {
-    //         (new MessageBox("Extracted pointer chain is broken on current memory state\n \n If the game is in correct state\n \n would you like to try to rebase the chain?", MessageBox::YES_NO))
-    //             ->setSelectionAction([&](u8 selection) {
-    //                 if (selection) {
-    //                     searchValue_t value;
-    //                     while (!getinput("Enter the value at this memory", "You must know what type is the value and set it correctly in the search memory type setting", "", &value)) {
-    //                     }
-    //                     printf("value = %ld\n", value._u64);
-    //                     rebasepointer(value);  //bookmark);
-    //                 } else {
-    //                     // add broken pointer chain for reference
-    //                     m_memoryDumpBookmark->addData((u8 *)&address, sizeof(u64));
-    //                     m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
-    //                 }
-    //                 Gui::g_currMessageBox->hide();
-    //             })
-    //             ->show();
-    //     } else
-    //         (new Snackbar("Not able to extract pointer chain from cheat"))->show();
-    // }
+    else {
+        if (bookmark.pointer.depth > 2)  // depth of 2 means only one pointer hit high chance of wrong positive
+            //     {
+            //         (new MessageBox("Extracted pointer chain is broken on current memory state\n \n If the game is in correct state\n \n would you like to try to rebase the chain?", MessageBox::YES_NO))
+            //             ->setSelectionAction([&](u8 selection) {
+            //                 if (selection) {
+            //                     searchValue_t value;
+            //                     while (!getinput("Enter the value at this memory", "You must know what type is the value and set it correctly in the search memory type setting", "", &value)) {
+            //                     }
+            //                     printf("value = %ld\n", value._u64);
+            //                     rebasepointer(value);  //bookmark);
+            //                 } else {
+            //                     // add broken pointer chain for reference
+            // m_memoryDumpBookmark->addData((u8 *)&address, sizeof(u64));
+            m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
+        //                 }
+        //                 Gui::g_currMessageBox->hide();
+        //             })
+        //             ->show();
+        //     } else
+        //         (new Snackbar("Not able to extract pointer chain from cheat"))->show();
+    }
 
     // pointercheck(); //disable for now;
+    // m_AttributeDumpBookmark->flushBuffer();
     return true;
 }
 class MailBoxOverlay : public tsl::Gui {
@@ -2002,7 +2026,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n");
         snprintf(Variables, sizeof Variables, "\n\n\n\n");
         if (m_cursor_on_bookmark)
-            snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
+            snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete\n",
                      m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
         else
             snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
@@ -2234,6 +2258,11 @@ class SetMultiplierOverlay : public tsl::Gui {
         }
         if ((keysDown & HidNpadButton_Plus) && !m_cursor_on_bookmark) {
             addbookmark();
+            return true;
+        }
+        if ((keysDown & HidNpadButton_Minus) && m_cursor_on_bookmark) {
+            deletebookmark();
+            if (((m_index >= NUM_bookmark) || ((m_index + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) ))) && m_index > 0) m_index--;
             return true;
         }
         if (m_editCheat) {
