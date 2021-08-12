@@ -579,7 +579,7 @@ struct bookmark_t {
     bool heap = true;
     u64 offset = 0;
     bool deleted = false;
-    u8 multiplier = 0;
+    u8 multiplier = 1;
 	u16 magic = 0x1289;
 };
 #define NUM_bookmark 10
@@ -658,6 +658,8 @@ char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 + 200] = "";
 char CheatsLabelsStr[NUM_cheats * 0x41 + 200] = "";
 char CheatsCursor[NUM_cheats * 5 + 200] = "";
 char CheatsEnableStr[NUM_cheats * 5 + 200] = "";
+// char m_err_str[500] = "";
+#define m_err_str CheatsLabelsStr
 bool m_show_only_enabled_cheats = true;
 bool m_cursor_on_bookmark = true;
 bool m_no_cheats = true;
@@ -1223,6 +1225,187 @@ static std::string _getAddressDisplayString(u64 address, Debugger *debugger, sea
     }
 
     return ss;  //.str();
+}
+bool addbookmark() {
+    // printf("start adding cheat to bookmark\n");
+    // m_cheatCnt
+    DmntCheatDefinition cheat = m_cheats[m_cheat_index].definition;
+    bookmark_t bookmark;
+    memcpy(&bookmark.label, &cheat.readable_name, sizeof(bookmark.label));
+    bookmark.pointer.depth = 0;
+    bookmark.deleted = false;
+    bool success = false;
+    u64 offset[MAX_POINTER_DEPTH + 1] = {0};
+    u64 depth = 0;
+    // u64 address;
+    bool no7 = true;
+
+    for (u8 i = 0; i < cheat.num_opcodes; i++) {
+        u8 opcode = (cheat.opcodes[i] >> 28) & 0xF;
+        // u8 Register = (cheat.opcodes[i] >> 16) & 0xF;
+        u8 FSA = (cheat.opcodes[i] >> 12) & 0xF;
+        u8 T = (cheat.opcodes[i] >> 24) & 0xF;
+        u8 M = (cheat.opcodes[i] >> 20) & 0xF;
+        u8 A = cheat.opcodes[i] & 0xFF;
+
+        // printf("code %x opcode %d register %d FSA %d %x \n", cheat.opcodes[i], opcode, Register, FSA, cheat.opcodes[i + 1]);
+
+        if (depth > MAX_POINTER_DEPTH) {
+            strncat(m_err_str, "this code is bigger than space catered on the bookmark !!\n", sizeof m_err_str -1);
+            break;
+        }
+
+        if (opcode == 0) {  //static case
+            i++;
+            bookmark.offset = cheat.opcodes[i] + A * 0x100000000;
+            switch (T) {
+                case 1:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_8BIT;
+                    i++;
+                    break;
+                case 2:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_16BIT;
+                    i++;
+                    break;
+                case 4:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_32BIT;
+                    i++;
+                    break;
+                case 8:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_64BIT;
+                    i += 2;
+                    break;
+                default:
+                    strncat(m_err_str, "cheat code processing error, wrong width value\n", sizeof m_err_str -1);
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_32BIT;
+                    i++;
+                    break;
+            };
+            if (M != 0) {
+                bookmark.heap = true;
+                // address = (m_debugger->queryMemory(metadata.heap_extents.base).type == 0) ? metadata.alias_extents.base : metadata.heap_extents.base + bookmark.offset;
+            } else {
+                bookmark.heap = false;
+                // address = metadata.main_nso_extents.base + bookmark.offset;
+            }
+
+            m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
+            break;
+        }
+        if (depth == 0) {
+            if (opcode == 5 && FSA == 0) {
+                i++;
+                if (M == 0)
+                    offset[depth] = cheat.opcodes[i];
+                else
+                    offset[depth] = (m_debugger->queryMemory(metadata.heap_extents.base).type == 0) ? metadata.alias_extents.base : metadata.heap_extents.base - metadata.main_nso_extents.base + cheat.opcodes[i];
+                depth++;
+            }
+            continue;
+        }
+        if (opcode == 5 && FSA == 1) {
+            i++;
+            offset[depth] = cheat.opcodes[i];
+            depth++;
+            continue;
+        }
+        if (opcode == 7 && FSA == 0) {
+            i++;
+            offset[depth] = cheat.opcodes[i];
+            // success = true;
+            no7 = false;
+            continue;
+            // break;
+        }
+        if (opcode == 6) {
+            if (no7) {
+                offset[depth] = 0;
+            }
+            switch (T) {
+                case 1:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_8BIT;
+                    break;
+                case 2:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_16BIT;
+                    break;
+                case 4:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_32BIT;
+                    break;
+                case 8:
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_64BIT;
+                    break;
+                default:
+                    strncat(m_err_str, "cheat code processing error, wrong width value\n", sizeof m_err_str -1);
+                    bookmark.type = SEARCH_TYPE_UNSIGNED_32BIT;
+                    break;
+            }
+            success = true;
+            break;
+        }
+    }
+
+    if (success) {
+        // compute address
+        // printf("success ! \n");
+        bookmark.pointer.depth = depth;
+        u64 nextaddress = metadata.main_nso_extents.base;
+        // printf("main[%lx]", nextaddress);
+        u8 i = 0;
+        for (int z = depth; z >= 0; z--) {
+            // bookmark_t bm;
+            bookmark.pointer.offset[z] = offset[i];
+            // printf("+%lx z=%d ", bookmark.pointer.offset[z], z);
+            nextaddress += bookmark.pointer.offset[z];
+            // printf("[%lx]", nextaddress);
+            // m_memoryDumpBookmark->addData((u8 *)&nextaddress, sizeof(u64));
+            // m_AttributeDumpBookmark->addData((u8 *)&bm, sizeof(bookmark_t));
+            MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
+            if (meminfo.perm == Perm_Rw) {
+                // address = nextaddress;
+                if (m_32bitmode)
+                    m_debugger->readMemory(&nextaddress, sizeof(u32), nextaddress);
+                else
+                    m_debugger->readMemory(&nextaddress, sizeof(u64), nextaddress);
+            } else {
+                // printf("*access denied*\n");
+                success = false;
+                // break;
+            }
+            // printf("(%lx)", nextaddress);
+            i++;
+        }
+        // printf("\n");
+    }
+    if (success) {
+        // m_memoryDumpBookmark->addData((u8 *)&address, sizeof(u64));
+        m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
+        strncat(m_err_str, "Adding pointer chain from cheat to bookmark\n", sizeof m_err_str -1);
+    } 
+    // else {
+    //     if (bookmark.pointer.depth > 2)  // depth of 2 means only one pointer hit high chance of wrong positive
+    //     {
+    //         (new MessageBox("Extracted pointer chain is broken on current memory state\n \n If the game is in correct state\n \n would you like to try to rebase the chain?", MessageBox::YES_NO))
+    //             ->setSelectionAction([&](u8 selection) {
+    //                 if (selection) {
+    //                     searchValue_t value;
+    //                     while (!getinput("Enter the value at this memory", "You must know what type is the value and set it correctly in the search memory type setting", "", &value)) {
+    //                     }
+    //                     printf("value = %ld\n", value._u64);
+    //                     rebasepointer(value);  //bookmark);
+    //                 } else {
+    //                     // add broken pointer chain for reference
+    //                     m_memoryDumpBookmark->addData((u8 *)&address, sizeof(u64));
+    //                     m_AttributeDumpBookmark->addData((u8 *)&bookmark, sizeof(bookmark_t));
+    //                 }
+    //                 Gui::g_currMessageBox->hide();
+    //             })
+    //             ->show();
+    //     } else
+    //         (new Snackbar("Not able to extract pointer chain from cheat"))->show();
+    // }
+
+    // pointercheck(); //disable for now;
+    return true;
 }
 class MailBoxOverlay : public tsl::Gui {
    public:
@@ -1818,8 +2001,12 @@ class SetMultiplierOverlay : public tsl::Gui {
         // strcat(BookmarkLabels,bookmarkfilename);
         snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n");
         snprintf(Variables, sizeof Variables, "\n\n\n\n");
-        snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 toggle, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
-                 m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        if (m_cursor_on_bookmark)
+            snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
+                     m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        else
+            snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
+                     m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
         snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n");
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
@@ -2043,6 +2230,10 @@ class SetMultiplierOverlay : public tsl::Gui {
             valueStr = _getAddressDisplayString(m_selected_address, m_debugger, m_selected_type);
             value_pos = valueStr.length();
             m_edit_value = true;
+            return true;
+        }
+        if ((keysDown & HidNpadButton_Plus) && !m_cursor_on_bookmark) {
+            addbookmark();
             return true;
         }
         if (m_editCheat) {
