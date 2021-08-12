@@ -189,16 +189,28 @@ void CheckIfGameRunning(void *) {
         svcSleepThread(1'000'000'000);
     }
 }
-
+// WIP thread
 void DoMultiplier();
 //Check for input outside of FPS limitations
+struct toggle_list_t {
+    u32 keycode;
+    u32 cheat_id;
+};
+std::vector<toggle_list_t> m_toggle_list;
+bool refresh_cheats = true;
 void CheckButtons(void *) {
-    // padInitializeAny(&pad);
+    padInitializeAny(&pad);
     // static uint64_t kHeld = padGetButtons(&pad);  // hidKeysHeld(CONTROLLER_P1_AUTO);
     while (threadexit == false) {
-        // padUpdate(&pad);
-        // kHeld = padGetButtons(&pad);
-        // u64 kDown = padGetButtonsDown(&pad);
+        padUpdate(&pad);
+        u64 kHeld = padGetButtons(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
+        for (auto entry : m_toggle_list) {
+            if (((kHeld | kDown ) == entry.keycode) && (kDown & entry.keycode)) {
+            dmntchtToggleCheat(entry.cheat_id);
+            refresh_cheats = true;
+            }
+        }
         // if ((kHeld & HidNpadButton_ZR) && (kHeld & HidNpadButton_R)) {
         //     if (kHeld & HidNpadButton_Down) {
         //         TeslaFPS = 1;
@@ -598,10 +610,12 @@ char m_cheatcode_path[128];
 char m_toggle_path[128];
 u64 m_cheatCnt = 0; 
 DmntCheatEntry *m_cheats = nullptr;
-bool refresh_cheats = true;
+
 bool save_code_to_file = false;
 bool m_edit_value = false;
 bool m_hex_mode = false;
+bool m_get_toggle_keycode = false;
+bool save_breeze_toggle_to_file = false;
 static const std::vector<std::string> keyNames = {"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","-","."};
 std::string valueStr = "";
 u8 value_pos =0;
@@ -1353,9 +1367,13 @@ bool addbookmark() {
                     break;
                 case 4:
                     bookmark.type = SEARCH_TYPE_UNSIGNED_32BIT;
+                    if (((cheat.opcodes[i + 2] & 0xF0000000) == 0x40000000) || ((cheat.opcodes[i + 2] & 0xF0000000) == 0x30000000) || ((cheat.opcodes[i + 2] & 0xF0000000) == 0xC0000000))
+                        bookmark.type = SEARCH_TYPE_FLOAT_32BIT;
                     break;
                 case 8:
                     bookmark.type = SEARCH_TYPE_UNSIGNED_64BIT;
+                    if (((cheat.opcodes[i + 1] & 0xF0000000) == 0x40000000) || ((cheat.opcodes[i + 1] & 0xF0000000) == 0x30000000) || ((cheat.opcodes[i + 1] & 0xF0000000) == 0xC0000000))
+                        bookmark.type = SEARCH_TYPE_FLOAT_64BIT;
                     break;
                 default:
                     strncat(m_err_str, "cheat code processing error, wrong width value\n", sizeof m_err_str -1);
@@ -1566,7 +1584,23 @@ void getcheats(){ // WIP
         if ((line + m_cheatlist_offset) >= m_cheatCnt)
             break;
         {   
-            char namestr[100] = "";         
+            char namestr[100] = "";
+            char toggle_str[100] = "";
+            if (!m_show_only_enabled_cheats) {
+                // sprintf(toggle_str, "size = %ld ", m_toggle_list.size());
+                for (size_t i = 0; i < m_toggle_list.size(); i++) {
+                    if (m_toggle_list[i].cheat_id == m_cheats[line + m_cheatlist_offset].cheat_id) {
+                        bool match = false;
+                        for (u32 j = 0; j < buttonCodes.size(); j++) {
+                            if ((m_toggle_list[i].keycode & buttonCodes[j]) == (buttonCodes[j] & 0x0FFFFFFF)) {
+                                strcat(toggle_str, buttonNames[j].c_str());
+                                match = true;
+                            };
+                        };
+                        if (match) strcat(toggle_str, ", ");
+                    }
+                }
+            }
             int buttoncode = m_cheats[line + m_cheatlist_offset].definition.opcodes[0];
             if ((buttoncode & 0xF0000000) == 0x80000000)
                 for (u32 i = 0; i < buttonCodes.size(); i++) {
@@ -1576,7 +1610,7 @@ void getcheats(){ // WIP
             if ((m_cheat_index == line) && (m_editCheat)) {
                 snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
             } else
-            snprintf(ss, sizeof ss, "%s%s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name);
+            snprintf(ss, sizeof ss, "%s%s %s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str);
             strcat(CheatsLabelsStr, ss);
             m_displayed_cheat_lines++;
             snprintf(ss, sizeof ss, "%s\n", ((m_cheat_index == line) && (!m_show_only_enabled_cheats) && !m_cursor_on_bookmark) ? "\uE019" : "");
@@ -1756,6 +1790,12 @@ class BookmarkOverlay : public tsl::Gui {
         strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+        for (auto entry : m_toggle_list) {
+            if (((keysHeld | keysDown) == entry.keycode) && (keysDown & entry.keycode)) {
+                dmntchtToggleCheat(entry.cheat_id);
+                refresh_cheats = true;
+            }
+        };
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             // CloseThreads();
             // cleanup_se_tools();
@@ -2136,7 +2176,12 @@ class SetMultiplierOverlay : public tsl::Gui {
     // WIP Setting
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         static u32 keycode;
-
+        for (auto entry : m_toggle_list) {
+            if (((keysHeld | keysDown) == entry.keycode) && (keysDown & entry.keycode)) {
+                dmntchtToggleCheat(entry.cheat_id);
+                refresh_cheats = true;
+            }
+        };
         if (m_edit_value) {
             if (keysDown & HidNpadButton_L) {
                 if (value_pos > 0) value_pos--;
@@ -2271,7 +2316,13 @@ class SetMultiplierOverlay : public tsl::Gui {
             keycount--;
             if (keycount > 0) return true;
             m_editCheat = false;
-            {
+            if (m_get_toggle_keycode) {
+                toggle_list_t entry;
+                entry.cheat_id = m_cheats[m_cheat_index].cheat_id;
+                entry.keycode = keycode;
+                m_toggle_list.push_back(entry);
+                m_get_toggle_keycode = false;
+            } else {
                 // edit cheat
                 if ((m_cheats[m_cheat_index].definition.opcodes[0] & 0xF0000000) == 0x80000000) {
                     m_cheats[m_cheat_index].definition.opcodes[0] = keycode;
@@ -2313,6 +2364,24 @@ class SetMultiplierOverlay : public tsl::Gui {
                 refresh_cheats = true;
             }
             save_code_to_file = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_StickL && !(keysHeld & HidNpadButton_ZL)) {  // programe Breeze toggle key combo
+            keycode = 0x00000000;
+            keycount = NUM_combokey;
+            m_editCheat = true;
+            m_get_toggle_keycode = true;
+            save_breeze_toggle_to_file = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_StickL && keysHeld & HidNpadButton_ZL) {  // remove Breeze toggle key combo
+            //delete m_cheats[m_cheat_index].cheat_id from m_toggle_list
+            for (size_t i = 0; i < m_toggle_list.size(); i++) {
+                if (m_toggle_list[i].cheat_id == m_cheats[m_cheat_index].cheat_id) {
+                    m_toggle_list.erase(m_toggle_list.begin() + i);
+                }
+            }
+            save_breeze_toggle_to_file = true;
             return true;
         }
         if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
