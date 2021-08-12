@@ -600,6 +600,33 @@ u64 m_cheatCnt = 0;
 DmntCheatEntry *m_cheats = nullptr;
 bool refresh_cheats = true;
 bool save_code_to_file = false;
+bool m_edit_value = false;
+bool m_hex_mode = false;
+static const std::vector<std::string> keyNames = {"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","-","."};
+std::string valueStr = "";
+u8 value_pos =0;
+u8 m_value_edit_index = 0;
+u64 m_selected_address;
+searchType_t m_selected_type;
+typedef enum {
+    Display,
+    Insert,
+    Delete
+} valueStr_action_t;
+std::string valueStr_edit_display(valueStr_action_t action) {
+    std::string tempstr = valueStr;
+    switch (action) {
+        case Display:
+            return tempstr.insert(value_pos,"|");
+        case Insert:
+            return valueStr.insert(value_pos,keyNames[m_value_edit_index]);
+        case Delete:
+            if ((valueStr.length() > 0) && (value_pos <= valueStr.length()) && (value_pos > 0))
+                return valueStr.erase(value_pos - 1, 1);
+            return valueStr;
+    }
+    return "";
+}
 static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80000002,
                                              0x80000004,
@@ -1846,7 +1873,11 @@ class SetMultiplierOverlay : public tsl::Gui {
                               bookmark.offset;
                 };
                 // bookmark display
-                snprintf(ss, sizeof ss, "%s\n", _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
+                snprintf(ss, sizeof ss, "%s\n", ((m_index == line) && m_edit_value) ? valueStr_edit_display(Display).c_str() : _getAddressDisplayString(address, m_debugger, (searchType_t)bookmark.type).c_str());
+                if (m_index == line) {
+                    m_selected_address = address;
+                    m_selected_type = bookmark.type;
+                };
                 strcat(Variables, ss);
                 snprintf(ss, sizeof ss, "%s\n", bookmark.label);
                 strcat(BookmarkLabels, ss);
@@ -1873,6 +1904,15 @@ class SetMultiplierOverlay : public tsl::Gui {
             // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 545, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, bookmark.deleted ? "To be deleted" : bookmark.label, ALIGNED_LEFT);
             // Gui::drawTextAligned(font14, Gui::g_framebuffer_width - 340, 305 + line * 40, (m_selectedEntry == line && m_menuLocation == CANDIDATES) ? COLOR_BLACK : currTheme.textColor, ss.str().c_str(), ALIGNED_LEFT);
         }
+        if (m_edit_value) {
+            strncat(Cursor, "\uE092\uE093\uE0A4\uE0A5 \uE0A0 Select, \uE0A1 Backspace, \uE045 Enter, \uE0A2 Cancel\n", sizeof Cursor - 1);
+            strncat(MultiplierStr, "\n", sizeof MultiplierStr - 1);
+            for (u8 i = 0; i < keyNames.size(); i++) {
+                strncat(Cursor, (i == m_value_edit_index) ? "->\n" : "\n", sizeof Cursor - 1);
+                strncat(MultiplierStr, (keyNames[i]+"\n").c_str(), sizeof MultiplierStr - 1);
+            }
+            return;
+        }
         // print cheats
         if (m_AttributeDumpBookmark->size() == 0) m_cursor_on_bookmark = false;
         m_show_only_enabled_cheats = false;
@@ -1885,6 +1925,126 @@ class SetMultiplierOverlay : public tsl::Gui {
     // WIP Setting
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         static u32 keycode;
+
+        if (m_edit_value) {
+            if (keysDown & HidNpadButton_L) {
+                if (value_pos > 0) value_pos--;
+                return true;
+            }
+            if (keysDown & HidNpadButton_R) {
+                if (value_pos < valueStr.length()) value_pos++;
+                return true;
+            }
+            if (keysDown & HidNpadButton_A) {
+                valueStr_edit_display(Insert);
+                value_pos++;
+                return true;
+            }
+            if (keysDown & HidNpadButton_Plus) {
+                searchValue_t searchValue;
+                if (m_hex_mode == false)
+                    switch (m_selected_type) {
+                        case SEARCH_TYPE_FLOAT_32BIT:
+                            searchValue._f32 = static_cast<float>(std::atof(valueStr.c_str()));
+                            break;
+                        case SEARCH_TYPE_FLOAT_64BIT:
+                            searchValue._f64 = std::atof(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_8BIT:
+                            searchValue._u8 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_SIGNED_8BIT:
+                            searchValue._s8 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_16BIT:
+                            searchValue._u16 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_SIGNED_16BIT:
+                            searchValue._s16 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_32BIT:
+                            searchValue._u32 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_SIGNED_32BIT:
+                            searchValue._s32 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_64BIT:
+                            searchValue._u64 = std::atol(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_SIGNED_64BIT:
+                            searchValue._s64 = std::atol(valueStr.c_str());
+                            break;
+                        default:
+                            searchValue._u64 = std::atol(valueStr.c_str());
+                            break;
+                    }
+                else
+                    switch (m_selected_type) {
+                        case SEARCH_TYPE_FLOAT_32BIT:
+                            searchValue._f32 = static_cast<float>(std::atof(valueStr.c_str()));
+                            break;
+                        case SEARCH_TYPE_FLOAT_64BIT:
+                            searchValue._f64 = std::atof(valueStr.c_str());
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_8BIT:
+                            searchValue._u8 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_SIGNED_8BIT:
+                            searchValue._s8 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_16BIT:
+                            searchValue._u16 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_SIGNED_16BIT:
+                            searchValue._s16 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_32BIT:
+                            searchValue._u32 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_SIGNED_32BIT:
+                            searchValue._s32 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_UNSIGNED_64BIT:
+                            searchValue._u64 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        case SEARCH_TYPE_SIGNED_64BIT:
+                            searchValue._s64 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                        default:
+                            searchValue._u64 = std::strtoul(valueStr.c_str(), NULL, 16);
+                            break;
+                    }
+                m_debugger->writeMemory(&searchValue, dataTypeSizes[m_selected_type], m_selected_address);
+                m_edit_value = false;
+                return true;
+            }
+            if (keysDown & HidNpadButton_B) {
+                if (value_pos > 0) {
+                    valueStr_edit_display(Delete);
+                    value_pos--;
+                }
+                return true;
+            }
+            if ((keysDown & HidNpadButton_AnyUp) || (keysHeld & HidNpadButton_StickRUp)) {
+                if (m_value_edit_index > 0) m_value_edit_index--;
+                return true;
+            };
+            if ((keysDown & HidNpadButton_AnyDown) || (keysHeld & HidNpadButton_StickRDown)) {
+                if (m_value_edit_index < keyNames.size() - 1) m_value_edit_index++;
+                return true;
+            };
+            if (keysDown & HidNpadButton_X) {
+                m_edit_value = false;
+                return true;
+            };
+            return true;
+        }
+        if ((keysDown & HidNpadButton_A) && m_cursor_on_bookmark) {
+            valueStr = _getAddressDisplayString(m_selected_address, m_debugger, m_selected_type);
+            value_pos = valueStr.length();
+            m_edit_value = true;
+            return true;
+        }
         if (m_editCheat) {
             if (keysDown == 0) return false;
             keycode = keycode | keysDown;  // Waitforkey_menu will send keycode in index to this buttonid;
