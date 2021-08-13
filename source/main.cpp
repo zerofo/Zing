@@ -615,8 +615,25 @@ bool save_code_to_file = false;
 bool m_edit_value = false;
 bool m_hex_mode = false;
 bool m_get_toggle_keycode = false;
+bool m_get_action_keycode = false;
 bool save_breeze_toggle_to_file = false;
+bool save_breeze_action_to_file = false;
 static const std::vector<std::string> keyNames = {"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","-","."};
+static const std::vector<std::string> actionNames = {"+","*","Set","Freeze","Unfreeze"};
+typedef enum {
+    Add,
+    Multipy,
+    Set,
+    Freeze,
+    Unfreeze
+} breeze_action_t;
+struct breeze_action_list_t {
+    u32 keycode = 0;
+    breeze_action_t breeze_action = Add;
+    searchValue_t value = {0}, freeze_value = {0};
+    u8 index = 0;
+};
+std::vector<breeze_action_list_t> m_breeze_action_list;
 std::string valueStr = "";
 u8 value_pos =0;
 u8 m_value_edit_index = 0;
@@ -666,12 +683,12 @@ static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80400000,
                                              0x80800000};
 static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
-char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41 + 200] = "";
+char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41 + 1000] = "";
 char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 500] = "";
-char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 + 200] = "";
-char CheatsLabelsStr[NUM_cheats * 0x41 + 200] = "";
-char CheatsCursor[NUM_cheats * 5 + 200] = "";
-char CheatsEnableStr[NUM_cheats * 5 + 200] = "";
+char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 ] = "";
+char CheatsLabelsStr[NUM_cheats * 0x41 ] = "";
+char CheatsCursor[NUM_cheats * 5 ] = "";
+char CheatsEnableStr[NUM_cheats * 5 ] = "";
 // char m_err_str[500] = "";
 #define m_err_str CheatsLabelsStr
 bool m_show_only_enabled_cheats = true;
@@ -906,6 +923,30 @@ void load_breeze_toggle(){
             m_toggle_list.push_back(entry);
         }
     delete m_breeze_toggle_file;
+}
+void save_breeze_action(){
+    std::string breeze_action_filename = bookmarkfilename;
+    breeze_action_filename.replace((breeze_action_filename.length()-3),3,"bz2");
+    MemoryDump *m_breeze_acton_file;
+    m_breeze_acton_file = new MemoryDump(breeze_action_filename.c_str(), DumpType::ADDR, true);
+    for (auto entry : m_breeze_action_list) {
+        m_breeze_acton_file->addData((u8 *)&entry, sizeof(breeze_action_list_t));
+    }
+    delete m_breeze_acton_file;
+}
+void load_breeze_action(){
+    m_breeze_action_list.clear();
+    std::string breeze_action_filename = bookmarkfilename;
+    breeze_action_filename.replace((breeze_action_filename.length()-3),3,"bz2");
+    MemoryDump *m_breeze_acton_file;
+    breeze_action_list_t entry;
+    m_breeze_acton_file = new MemoryDump(breeze_action_filename.c_str(), DumpType::ADDR, false);
+    if (m_breeze_acton_file->size() > 0)
+        for (size_t i = 0; i < m_breeze_acton_file->size() / sizeof(breeze_action_list_t); i++) {
+            m_breeze_acton_file->getData(i * sizeof(breeze_action_list_t), &entry, sizeof(breeze_action_list_t));
+            m_breeze_action_list.push_back(entry);
+        }
+    delete m_breeze_acton_file;
 }
 bool loadcheatsfromfile() {
     snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
@@ -1631,7 +1672,7 @@ void getcheats(){ // WIP
                     if ((buttoncode & buttonCodes[i]) == buttonCodes[i])
                         strcat(namestr, buttonNames[i].c_str());
                 }
-            if ((m_cheat_index == line) && (m_editCheat)) {
+            if ((m_cheat_index == line) && (m_editCheat) && !m_cursor_on_bookmark) {
                 snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
             } else
             snprintf(ss, sizeof ss, "%s%s %s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str);
@@ -2153,8 +2194,29 @@ class SetMultiplierOverlay : public tsl::Gui {
                     m_selected_address = address;
                     m_selected_type = bookmark.type;
                 };
-                strcat(Variables, ss);
-                snprintf(ss, sizeof ss, "%s\n", bookmark.label);
+                if ((m_index == line) && (m_editCheat) && m_cursor_on_bookmark) {
+                    strcat(Variables, "\n");
+                    snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
+                } else {
+                    char toggle_str[100] = "";
+                    for (auto entry : m_breeze_action_list) {
+                        if (entry.index == line) {
+                            for (u32 j = 0; j < buttonCodes.size(); j++) {
+                                if ((entry.keycode & buttonCodes[j]) == (buttonCodes[j] & 0x0FFFFFFF)) {
+                                    strcat(toggle_str, buttonNames[j].c_str());
+                                };
+                            };
+                            strcat(toggle_str, ", ");
+                        }
+                    }
+                    if (strlen(toggle_str) != 0) {
+                        strcat(Variables, "\n");
+                        snprintf(ss, sizeof ss, "%s %s\n", bookmark.label, toggle_str);
+                    } else {
+                        strcat(Variables, ss);
+                        snprintf(ss, sizeof ss, "%s\n", bookmark.label);
+                    }
+                }
                 strcat(BookmarkLabels, ss);
                 snprintf(ss, sizeof ss, "%s\n", ((m_index == line) && m_cursor_on_bookmark) ? "\uE019" : "");
                 strcat(Cursor, ss);
@@ -2205,6 +2267,52 @@ class SetMultiplierOverlay : public tsl::Gui {
                 dmntchtToggleCheat(entry.cheat_id);
                 refresh_cheats = true;
             }
+        };
+        if (m_editCheat) {
+            if (keysDown == 0) return false;
+            keycode = keycode | keysDown;  // Waitforkey_menu will send keycode in index to this buttonid;
+            keycount--;
+            if (keycount > 0) return true;
+            m_editCheat = false;
+            if (m_get_toggle_keycode) {
+                toggle_list_t entry;
+                entry.cheat_id = m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id;
+                entry.keycode = keycode;
+                m_toggle_list.push_back(entry);
+                m_get_toggle_keycode = false;
+            } else if (m_get_action_keycode) {
+                // setup to get the rest of the required data
+
+                breeze_action_list_t entry;
+                entry.index = m_index;
+                entry.keycode = keycode;
+                entry.breeze_action = Set;
+                entry.freeze_value._u16 = 10;
+                m_breeze_action_list.push_back(entry); // temp test code
+
+                m_get_action_keycode = false;
+            } else {
+                // edit cheat
+                if ((m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] & 0xF0000000) == 0x80000000) {
+                    m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] = keycode;
+                } else {
+                    if (m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes < 0x100 + 2) {
+                        m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes + 1] = 0x20000000;
+
+                        for (u32 i = m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes; i > 0; i--) {
+                            m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i] = m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i - 1];
+                        }
+                        m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes += 2;
+                        m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] = keycode;
+                    }
+                }
+                // modify cheat
+                dmntchtRemoveCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+                u32 outid = 0;
+                dmntchtAddCheat(&(m_cheats[m_cheat_index + m_cheatlist_offset].definition), m_cheats[m_cheat_index + m_cheatlist_offset].enabled, &outid);
+                refresh_cheats = true;
+            };
+            return true;
         };
         if (m_edit_value) {
             if (keysDown & HidNpadButton_L) {
@@ -2334,57 +2442,22 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (((m_index >= NUM_bookmark) || ((m_index + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) ))) && m_index > 0) m_index--;
             return true;
         }
-        if (m_editCheat) {
-            if (keysDown == 0) return false;
-            keycode = keycode | keysDown;  // Waitforkey_menu will send keycode in index to this buttonid;
-            keycount--;
-            if (keycount > 0) return true;
-            m_editCheat = false;
-            if (m_get_toggle_keycode) {
-                toggle_list_t entry;
-                entry.cheat_id = m_cheats[m_cheat_index].cheat_id;
-                entry.keycode = keycode;
-                m_toggle_list.push_back(entry);
-                m_get_toggle_keycode = false;
-            } else {
-                // edit cheat
-                if ((m_cheats[m_cheat_index].definition.opcodes[0] & 0xF0000000) == 0x80000000) {
-                    m_cheats[m_cheat_index].definition.opcodes[0] = keycode;
-                } else {
-                    if (m_cheats[m_cheat_index].definition.num_opcodes < 0x100 + 2) {
-                        m_cheats[m_cheat_index].definition.opcodes[m_cheats[m_cheat_index].definition.num_opcodes + 1] = 0x20000000;
-
-                        for (u32 i = m_cheats[m_cheat_index].definition.num_opcodes; i > 0; i--) {
-                            m_cheats[m_cheat_index].definition.opcodes[i] = m_cheats[m_cheat_index].definition.opcodes[i - 1];
-                        }
-                        m_cheats[m_cheat_index].definition.num_opcodes += 2;
-                        m_cheats[m_cheat_index].definition.opcodes[0] = keycode;
-                    }
-                }
-                // modify cheat
-                dmntchtRemoveCheat(m_cheats[m_cheat_index].cheat_id);
-                u32 outid = 0;
-                dmntchtAddCheat(&(m_cheats[m_cheat_index].definition), m_cheats[m_cheat_index].enabled, &outid);
-                refresh_cheats = true;
-            };
-            return true;
-        };
-        if (keysDown & HidNpadButton_StickR && !(keysHeld & HidNpadButton_ZL)) { // programe key combo
+                if (keysDown & HidNpadButton_StickR && !(keysHeld & HidNpadButton_ZL) && !m_cursor_on_bookmark) { // programe key combo
             keycode = 0x80000000;
             keycount = NUM_combokey;
             m_editCheat = true;
             save_code_to_file = true;
             return true;
         }
-        if (keysDown & HidNpadButton_StickR && keysHeld & HidNpadButton_ZL) { // remove key combo
-            if ((m_cheats[m_cheat_index].definition.opcodes[0] & 0xF0000000) == 0x80000000 && (m_cheats[m_cheat_index].definition.opcodes[m_cheats[m_cheat_index].definition.num_opcodes - 1] & 0xF0000000) == 0x20000000) {
-                for (u32 i = 0; i < m_cheats[m_cheat_index].definition.num_opcodes - 1; i++) {
-                    m_cheats[m_cheat_index].definition.opcodes[i] = m_cheats[m_cheat_index].definition.opcodes[i + 1];
+        if (keysDown & HidNpadButton_StickR && keysHeld & HidNpadButton_ZL && !m_cursor_on_bookmark) { // remove key combo
+            if ((m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] & 0xF0000000) == 0x80000000 && (m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes - 1] & 0xF0000000) == 0x20000000) {
+                for (u32 i = 0; i < m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes - 1; i++) {
+                    m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i] = m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i + 1];
                 };
-                m_cheats[m_cheat_index].definition.num_opcodes -= 2;
-                dmntchtRemoveCheat(m_cheats[m_cheat_index].cheat_id);
+                m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes -= 2;
+                dmntchtRemoveCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
                 u32 outid = 0;
-                dmntchtAddCheat(&(m_cheats[m_cheat_index].definition), m_cheats[m_cheat_index].enabled, &outid);
+                dmntchtAddCheat(&(m_cheats[m_cheat_index + m_cheatlist_offset].definition), m_cheats[m_cheat_index + m_cheatlist_offset].enabled, &outid);
                 refresh_cheats = true;
             }
             save_code_to_file = true;
@@ -2394,18 +2467,32 @@ class SetMultiplierOverlay : public tsl::Gui {
             keycode = 0x00000000;
             keycount = NUM_combokey;
             m_editCheat = true;
-            m_get_toggle_keycode = true;
-            save_breeze_toggle_to_file = true;
+            if (m_cursor_on_bookmark) {
+                m_get_action_keycode = true;
+                save_breeze_action_to_file = true;
+            } else {
+                m_get_toggle_keycode = true;
+                save_breeze_toggle_to_file = true;
+            }
             return true;
         }
         if (keysDown & HidNpadButton_StickL && keysHeld & HidNpadButton_ZL) {  // remove Breeze toggle key combo
-            //delete m_cheats[m_cheat_index].cheat_id from m_toggle_list
-            for (size_t i = 0; i < m_toggle_list.size(); i++) {
-                if (m_toggle_list[i].cheat_id == m_cheats[m_cheat_index].cheat_id) {
-                    m_toggle_list.erase(m_toggle_list.begin() + i);
+            //delete m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id from m_toggle_list
+            if (m_cursor_on_bookmark) {
+                for (size_t i = 0; i < m_breeze_action_list.size(); i++) {
+                    while ((m_breeze_action_list[i].index == m_index) &&  i < m_breeze_action_list.size())  {
+                        m_breeze_action_list.erase(m_breeze_action_list.begin() + i);
+                    }
                 }
+                save_breeze_action_to_file = true;
+            } else {
+                for (size_t i = 0; i < m_toggle_list.size(); i++) {
+                    while (m_toggle_list[i].cheat_id == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id && i < m_toggle_list.size()) {
+                        m_toggle_list.erase(m_toggle_list.begin() + i);
+                    }
+                }
+                save_breeze_toggle_to_file = true;
             }
-            save_breeze_toggle_to_file = true;
             return true;
         }
         if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
@@ -2537,6 +2624,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             save_code_to_file = false;
             if (save_breeze_toggle_to_file) save_breeze_toggle();
             save_breeze_toggle_to_file = false;
+            if (save_breeze_action_to_file) save_breeze_action();
+            save_breeze_action_to_file = false;            
             // cleanup_se_tools();
             tsl::goBack();
             return true;
@@ -2773,6 +2862,7 @@ class MonitorOverlay : public tsl::Overlay {
         rc = nsInitialize();
         init_se_tools();
         load_breeze_toggle();
+        load_breeze_action();
         //Initialize services
         if (R_SUCCEEDED(smInitialize())) {
             if (hosversionAtLeast(8, 0, 0))
