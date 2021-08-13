@@ -2642,6 +2642,12 @@ class SetMultiplierOverlay : public tsl::Gui {
             FullMode = false;
             tsl::changeTo<BookmarkOverlay>();
             dmntchtResumeCheatProcess();
+            if (save_code_to_file) dumpcodetofile();
+            save_code_to_file = false;
+            if (save_breeze_toggle_to_file) save_breeze_toggle();
+            save_breeze_toggle_to_file = false;
+            if (save_breeze_action_to_file) save_breeze_action();
+            save_breeze_action_to_file = false;
             return true;
         }        
         if (keysDown & HidNpadButton_B) {
@@ -2651,7 +2657,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (save_breeze_toggle_to_file) save_breeze_toggle();
             save_breeze_toggle_to_file = false;
             if (save_breeze_action_to_file) save_breeze_action();
-            save_breeze_action_to_file = false;            
+            save_breeze_action_to_file = false;  
+            dmntchtResumeCheatProcess();          
             // cleanup_se_tools();
             tsl::goBack();
             return true;
@@ -2879,6 +2886,7 @@ class MainMenu : public tsl::Gui { // WIP
     }
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         if (keysDown & HidNpadButton_B) {
+            dmntchtResumeCheatProcess();
             tsl::goBack();
             return true;
         }

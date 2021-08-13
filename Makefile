@@ -38,7 +38,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Breeze Overlay
-APP_VERSION	:=	0.0.8a
+APP_VERSION	:=	0.0.9
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source lib/Atmosphere-libs/libstratosphere/source/dmnt
