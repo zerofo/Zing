@@ -883,6 +883,30 @@ void dumpcodetofile() {
         fclose(pfile);
     }
 }
+void save_breeze_toggle(){
+    std::string breeze_toggle_filename = bookmarkfilename;
+    breeze_toggle_filename.replace((breeze_toggle_filename.length()-3),3,"bz1");
+    MemoryDump *m_breeze_toggle_file;
+    m_breeze_toggle_file = new MemoryDump(breeze_toggle_filename.c_str(), DumpType::ADDR, true);
+    for (auto entry : m_toggle_list) {
+        m_breeze_toggle_file->addData((u8 *)&entry, sizeof(toggle_list_t));
+    }
+    delete m_breeze_toggle_file;
+}
+void load_breeze_toggle(){
+    m_toggle_list.clear();
+    std::string breeze_toggle_filename = bookmarkfilename;
+    breeze_toggle_filename.replace((breeze_toggle_filename.length()-3),3,"bz1");
+    MemoryDump *m_breeze_toggle_file;
+    toggle_list_t entry;
+    m_breeze_toggle_file = new MemoryDump(breeze_toggle_filename.c_str(), DumpType::ADDR, false);
+    if (m_breeze_toggle_file->size() > 0)
+        for (size_t i = 0; i < m_breeze_toggle_file->size() / sizeof(toggle_list_t); i++) {
+            m_breeze_toggle_file->getData(i * sizeof(toggle_list_t), &entry, sizeof(toggle_list_t));
+            m_toggle_list.push_back(entry);
+        }
+    delete m_breeze_toggle_file;
+}
 bool loadcheatsfromfile() {
     snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
     
@@ -2511,6 +2535,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             // CloseThreads();
             if (save_code_to_file) dumpcodetofile();
             save_code_to_file = false;
+            if (save_breeze_toggle_to_file) save_breeze_toggle();
+            save_breeze_toggle_to_file = false;
             // cleanup_se_tools();
             tsl::goBack();
             return true;
@@ -2746,6 +2772,7 @@ class MonitorOverlay : public tsl::Overlay {
         dmntchtCheck = dmntchtInitialize();
         rc = nsInitialize();
         init_se_tools();
+        load_breeze_toggle();
         //Initialize services
         if (R_SUCCEEDED(smInitialize())) {
             if (hosversionAtLeast(8, 0, 0))
