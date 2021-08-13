@@ -618,6 +618,7 @@ bool m_get_toggle_keycode = false;
 bool m_get_action_keycode = false;
 bool save_breeze_toggle_to_file = false;
 bool save_breeze_action_to_file = false;
+bool first_launch = true;
 static const std::vector<std::string> keyNames = {"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","-","."};
 static const std::vector<std::string> actionNames = {"+","*","Set","Freeze","Unfreeze"};
 typedef enum {
@@ -1864,12 +1865,25 @@ class BookmarkOverlay : public tsl::Gui {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             // CloseThreads();
             // cleanup_se_tools();
+            m_cheatlist_offset = 0;
+            TeslaFPS = 50;
+            refreshrate = 1;
+            alphabackground = 0x0;
+            tsl::hlp::requestForeground(true);
+            FullMode = false;
             tsl::goBack();
             return true;
         };
         if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
             // CloseThreads();
             // cleanup_se_tools();
+            m_cheatlist_offset = 0;
+            TeslaFPS = 50;
+            refreshrate = 1;
+            alphabackground = 0x0;
+            tsl::hlp::requestForeground(true);
+            FullMode = false;
+            dmntchtPauseCheatProcess();
             tsl::goBack();
             return true;
         }
@@ -2464,10 +2478,12 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_StickL && !(keysHeld & HidNpadButton_ZL)) {  // programe Breeze toggle key combo
+            if (m_cursor_on_bookmark) return true;
             keycode = 0x00000000;
             keycount = NUM_combokey;
             m_editCheat = true;
             if (m_cursor_on_bookmark) {
+                // return true; // disable this option for now
                 m_get_action_keycode = true;
                 save_breeze_action_to_file = true;
             } else {
@@ -2618,6 +2634,16 @@ class SetMultiplierOverlay : public tsl::Gui {
             };
             return true;
         }
+        if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
+            TeslaFPS = 20;
+            refreshrate = 1;
+            alphabackground = 0x0;
+            tsl::hlp::requestForeground(false);
+            FullMode = false;
+            tsl::changeTo<BookmarkOverlay>();
+            dmntchtResumeCheatProcess();
+            return true;
+        }        
         if (keysDown & HidNpadButton_B) {
             // CloseThreads();
             if (save_code_to_file) dumpcodetofile();
@@ -2836,6 +2862,15 @@ class MainMenu : public tsl::Gui { // WIP
             refreshrate = 1;
             systemtickfrequency = 19200000;
         }
+        if (first_launch) {
+            first_launch = false;
+            TeslaFPS = 50;
+            refreshrate = 1;
+            alphabackground = 0x0;
+            tsl::hlp::requestForeground(true);
+            FullMode = false;
+            tsl::changeTo<SetMultiplierOverlay>();
+        }
         // if (Bstate.A == 123) {
         //     tsl::hlp::requestForeground(true);
         //     Bstate.A += 100;
@@ -2848,7 +2883,12 @@ class MainMenu : public tsl::Gui { // WIP
             return true;
         }
         if (keysHeld & HidNpadButton_X) {
-            tsl::Overlay::get()->hide();
+            TeslaFPS = 50;
+            refreshrate = 1;
+            alphabackground = 0x0;
+            tsl::hlp::requestForeground(true);
+            FullMode = false;
+            tsl::changeTo<SetMultiplierOverlay>();
             return true;
         }
         return false;
