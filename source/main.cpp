@@ -2956,7 +2956,7 @@ class MainMenu : public tsl::Gui { // WIP
             refreshrate = 1;
             systemtickfrequency = 19200000;
         }
-        if (first_launch) {
+        if (first_launch && m_debugger->m_dmnt) {
             // reload the cheats
             refresh_cheats = true;
             getcheats();
