@@ -1717,7 +1717,7 @@ void getcheats(){ // WIP
                 snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
             } else {
                 snprintf(ss, sizeof ss, "%s%s %s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str);
-                if (m_outline.size() > 1) {
+                if (m_outline.size() > 1 && !m_show_only_enabled_cheats) {
                     for (auto entry : m_outline) {
                         if (m_cheats[line + m_cheatlist_offset].cheat_id == entry.index + 1) {
                             snprintf(ss, sizeof ss, "%s%s %s[%s]\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str, entry.label.c_str());
