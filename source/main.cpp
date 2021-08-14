@@ -2516,6 +2516,19 @@ class SetMultiplierOverlay : public tsl::Gui {
             save_breeze_action_to_file = false;
             return true;
         }
+        if ((keysHeld & HidNpadButton_ZL) && (keysDown & HidNpadButton_ZR)) {  // enter outline mode
+            m_show_outline = !m_show_outline;
+            if (m_show_outline) m_cursor_on_bookmark = false;
+            return true;
+        }
+        if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
+            fontsize++;
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && keysHeld & HidNpadButton_ZL) {
+            fontsize--;
+            return true;
+        }
         if (m_show_outline) {
             if ((keysDown & HidNpadButton_AnyUp) || (keysHeld & HidNpadButton_StickRUp)) {
                 if (m_outline_index > 0) m_outline_index--;
@@ -2535,10 +2548,6 @@ class SetMultiplierOverlay : public tsl::Gui {
                 m_show_outline = false;
                 return true;
             }
-        }
-        if ((keysHeld & HidNpadButton_ZL) && (keysDown & HidNpadButton_ZR)) {  // enter outline mode
-            m_show_outline = !m_show_outline;
-            if (m_show_outline) m_cursor_on_bookmark = false;
             return true;
         }
         if ((keysDown & HidNpadButton_A) && m_cursor_on_bookmark) {
@@ -2609,14 +2618,6 @@ class SetMultiplierOverlay : public tsl::Gui {
                 }
                 save_breeze_toggle_to_file = true;
             }
-            return true;
-        }
-        if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
-            fontsize++;
-            return true;
-        }
-        if (keysDown & HidNpadButton_L && keysHeld & HidNpadButton_ZL) {
-            fontsize--;
             return true;
         }
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
@@ -2723,14 +2724,14 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_ZR) {
-            if (!m_cursor_on_bookmark) {
+            if (!m_cursor_on_bookmark && m_outline.size() <= 1) {
                 if ((m_cheatlist_offset + NUM_cheats) < m_cheatCnt - 1) m_cheatlist_offset += NUM_cheats;
                 if ((m_cheat_index + m_cheatlist_offset) > m_cheatCnt - 1) m_cheat_index = m_cheatCnt - 1 - m_cheatlist_offset;
             };
             return true;
         }
         if (keysDown & HidNpadButton_ZL) {
-            if (!m_cursor_on_bookmark) {
+            if (!m_cursor_on_bookmark && m_outline.size() <= 1) {
                 if (m_cheatlist_offset > NUM_cheats) m_cheatlist_offset -= NUM_cheats; else m_cheatlist_offset = 0;
             };
             return true;
@@ -2967,7 +2968,10 @@ class MainMenu : public tsl::Gui { // WIP
             getcheats();
             loadtoggles();
             refresh_cheats = true;
-            if (m_outline.size()>1) m_show_outline = true;
+            if (m_outline.size() > 1 && m_AttributeDumpBookmark->size() == 0) {
+                m_show_outline = true;
+                m_cursor_on_bookmark = false;
+            }
             // end reload cheats
 
             first_launch = false;
