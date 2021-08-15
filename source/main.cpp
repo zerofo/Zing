@@ -1170,7 +1170,7 @@ bool ParseCheatToggles(const char *s, size_t len) {
     return true;
 }
 void loadtoggles() {
-    snprintf(m_toggle_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/toggles.txt", metadata.title_id);
+    snprintf(m_toggle_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/toggles.brz", metadata.title_id);
     FILE *pfile;
     pfile = fopen(m_toggle_path, "rb");
     if (pfile != NULL) {
@@ -1180,6 +1180,19 @@ void loadtoggles() {
         fseek(pfile, 0, SEEK_SET);
         fread(s, 1, len, pfile);
         ParseCheatToggles(s, len);
+        fclose(pfile);
+    };
+};
+void savetoggles() {
+    snprintf(m_toggle_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/toggles.brz", metadata.title_id);
+    FILE *pfile;
+    char tmp[1000];
+    pfile = fopen(m_toggle_path, "w");
+    if (pfile != NULL) {
+        for (u8 i = 0; i < m_cheatCnt; i++) {
+            snprintf(tmp, 1000, "[%s]\n%s\n", m_cheats[i].definition.readable_name, (m_cheats[i].enabled) ? "true" : "false");
+            fputs(tmp, pfile);
+        }
         fclose(pfile);
     };
 };
@@ -2844,6 +2857,7 @@ class MainMenu : public tsl::Gui { // WIP
                 // init_se_tools();
                 refresh_cheats = true;
                 getcheats();
+                savetoggles();
                 for (u8 i = 0; i < m_cheatCnt; i++) {
                     dmntchtRemoveCheat(m_cheats[i].cheat_id);
                 };
@@ -2960,6 +2974,7 @@ class MainMenu : public tsl::Gui { // WIP
             // reload the cheats
             refresh_cheats = true;
             getcheats();
+            savetoggles();
             for (u8 i = 0; i < m_cheatCnt; i++) {
                 dmntchtRemoveCheat(m_cheats[i].cheat_id);
             };
