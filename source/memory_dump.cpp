@@ -35,8 +35,9 @@ MemoryDump::MemoryDump(std::string filePath, DumpType dumpType, bool discardFile
   m_dataHeader.searchMode = SEARCH_MODE_NONE;
   m_dataHeader.searchRegion = SEARCH_REGION_NONE;
   Config::readConfig();
-  if (filePath.compare("/switch/EdiZon/memdump1.dat") == 0 || filePath.compare("/switch/EdiZon/memdump1a.dat") == 0 
-  || (Config::getConfig()->separatebookmark && (filePath.compare("/switch/EdiZon/memdumpbookmark.dat") == 0 )))
+  m_edizon_dir = Config::getConfig()->edizon_dir;
+  // if (filePath.compare("/switch/EdiZon/memdump1.dat") == 0 || filePath.compare("/switch/EdiZon/memdump1a.dat") == 0 
+  // || (Config::getConfig()->separatebookmark && (filePath.compare("/switch/EdiZon/memdumpbookmark.dat") == 0 )))
   {
     filePath.replace(0, sizeof(EDIZON_DIR)-1, m_edizon_dir);
     m_filePath = filePath;

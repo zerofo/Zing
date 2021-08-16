@@ -712,7 +712,7 @@ std::string m_edizon_dir = "/switch/EdiZon";
 std::string m_store_extension = "A";
 Debugger *m_debugger;
 // MemoryDump *m_memoryDump;
-MemoryDump *m_AttributeDumpBookmark;
+MemoryDump *m_AttributeDumpBookmark = nullptr;
 u8 m_addresslist_offset = 0;
 u32 m_cheatlist_offset = 0;
 bool m_32bitmode = false;
@@ -3095,9 +3095,13 @@ class MonitorOverlay : public tsl::Overlay {
     virtual void onShow() override {
         m_on_show = true;
         refresh_cheats = true;
+        if (m_AttributeDumpBookmark == nullptr)
+            m_AttributeDumpBookmark = new MemoryDump(bookmarkfilename, DumpType::ADDR, false);
         CloseThreads();
     }  // Called before overlay wants to change from invisible to visible state
     virtual void onHide() override {
+        delete m_AttributeDumpBookmark;
+        m_AttributeDumpBookmark = nullptr;
         StartThreads();
     }  // Called before overlay wants to change from visible to invisible state
 
