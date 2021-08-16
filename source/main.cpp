@@ -3095,13 +3095,9 @@ class MonitorOverlay : public tsl::Overlay {
     virtual void onShow() override {
         m_on_show = true;
         refresh_cheats = true;
-        if (m_AttributeDumpBookmark == nullptr)
-            m_AttributeDumpBookmark = new MemoryDump(bookmarkfilename, DumpType::ADDR, false);
         CloseThreads();
     }  // Called before overlay wants to change from invisible to visible state
     virtual void onHide() override {
-        delete m_AttributeDumpBookmark;
-        m_AttributeDumpBookmark = nullptr;
         StartThreads();
     }  // Called before overlay wants to change from visible to invisible state
 
