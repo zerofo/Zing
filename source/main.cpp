@@ -3094,6 +3094,7 @@ class MonitorOverlay : public tsl::Overlay {
 
     virtual void onShow() override {
         m_on_show = true;
+        refresh_cheats = true;
         CloseThreads();
     }  // Called before overlay wants to change from invisible to visible state
     virtual void onHide() override {
