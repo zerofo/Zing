@@ -10,6 +10,8 @@ A tesla overlay for game cheating with the following features:
  
 ## Assign button combos for cheats
 3. Two kind of button combos are available. Button combo that is bind to the cheat code as conditional execute and button combos that trigger the overlay to toggle on/off the cheat code for button hold free enjoyment.
+4. Rstick button / ZL + Rstick button program / remove conditional execute.
+5. Lstick button / SL + Lstick button program / remove toggle. 
 
 https://user-images.githubusercontent.com/68505331/129448517-4b318293-0405-4b9d-a3d0-f9aeae2de433.mp4
 
@@ -24,5 +26,5 @@ https://user-images.githubusercontent.com/68505331/129448517-4b318293-0405-4b9d-
 https://user-images.githubusercontent.com/68505331/129449230-ff923520-17f1-445e-b756-34a1e0338208.mp4
 
 
-4. In this example the cheat code that moves the game character up and down is assigned to the stick up and stick down as conditional execute and the cheat code hover which makes the game character hover in the air is assign to button R which toggles the cheat on/off. The button combos that is bind to code is shown on the left of the cheat label and the code that toggles the cheat on / off is shown on the right of the cheat label. 
-5. Some games make full use of every key so holding some key down is at times inconvenient and at other times not practical. There are also cases when most of the time you want the code enabled but occasionally you want to be able to quickly disable it. Moon Jump is very often going to prevent dropping down from platform. A quick way to disable moon jump is a good use case for this feature.
+6. In this example the cheat code that moves the game character up and down is assigned to the stick up and stick down as conditional execute and the cheat code hover which makes the game character hover in the air is assign to button R which toggles the cheat on/off. The button combos that is bind to code is shown on the left of the cheat label and the code that toggles the cheat on / off is shown on the right of the cheat label. 
+7. Some games make full use of every key so holding some key down is at times inconvenient and at other times not practical. There are also cases when most of the time you want the code enabled but occasionally you want to be able to quickly disable it. Moon Jump is very often going to prevent dropping down from platform. A quick way to disable moon jump is a good use case for this feature.
