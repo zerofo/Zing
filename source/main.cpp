@@ -693,12 +693,12 @@ static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80800000};
 static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
 
-char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41 + 1000] = "";
-char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 500] = "";
-char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 + 1000] = "";
+char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41] = "";
+char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 1000] = "";
+char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 0x41 ] = "";
 char CheatsLabelsStr[NUM_cheats * 0x41 ] = "";
-char CheatsCursor[NUM_cheats * 5 ] = "";
-char CheatsEnableStr[NUM_cheats * 5 ] = "";
+char CheatsCursor[NUM_cheats * 5 +500 ] = "";
+char CheatsEnableStr[NUM_cheats * 0x41] = "";
 // char m_err_str[500] = "";
 #define m_err_str CheatsLabelsStr
 bool m_show_only_enabled_cheats = true;
@@ -2375,8 +2375,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             strncat(BookmarkLabels, "\n", sizeof BookmarkLabels - 1);
             strncat(MultiplierStr, "\n", sizeof MultiplierStr - 1);
             for (u8 i = 0; i < m_outline.size(); i++) {
-                strncat(Cursor, (i == m_outline_index && !m_cursor_on_bookmark) ? "\uE019\n" : "\n", sizeof MultiplierStr - 1);
-                strncat(MultiplierStr, ("[" + m_outline[i].label + "]\n").c_str(), sizeof BookmarkLabels - 1);
+                strncat(Cursor, (i == m_outline_index && !m_cursor_on_bookmark) ? "\uE019\n" : "\n", sizeof Cursor - 1);
+                strncat(MultiplierStr, ("[" + m_outline[i].label + "]\n").c_str(), sizeof MultiplierStr - 1);
             }
             return;
         }
@@ -2386,7 +2386,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         // m_cheatlist_offset = 0;
         getcheats();
         strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
-        strncat(Cursor,CheatsCursor, sizeof Cursor-1);
+        strncat(Cursor, CheatsCursor, sizeof Cursor - 1);
         strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
     // WIP Setting
