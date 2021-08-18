@@ -1378,7 +1378,7 @@ bool deletebookmark(){
 bool addbookmark() {
     // printf("start adding cheat to bookmark\n");
     // m_cheatCnt
-    DmntCheatDefinition cheat = m_cheats[m_cheat_index].definition;
+    DmntCheatDefinition cheat = m_cheats[m_cheat_index + m_cheatlist_offset].definition;
     bookmark_t bookmark;
     memcpy(&bookmark.label, &cheat.readable_name, sizeof(bookmark.label));
     bookmark.pointer.depth = 0;
