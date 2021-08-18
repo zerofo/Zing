@@ -579,6 +579,8 @@ class FullOverlay : public tsl::Gui {
 };
 // Bookmark display
 // WIP
+bool b_showkeyhint = true;
+std::string Title_str = "";
 #define MAX_POINTER_DEPTH 12
 struct pointer_chain_t {
     u64 depth = 0;
@@ -690,9 +692,10 @@ static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80400000,
                                              0x80800000};
 static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
+
 char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41 + 1000] = "";
 char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 500] = "";
-char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 ] = "";
+char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 5 + 1000] = "";
 char CheatsLabelsStr[NUM_cheats * 0x41 ] = "";
 char CheatsCursor[NUM_cheats * 5 ] = "";
 char CheatsEnableStr[NUM_cheats * 5 ] = "";
@@ -1208,22 +1211,22 @@ void DoMultiplier() {
             if (bookmark.multiplier==1) continue;
             if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
             {
-                bool updateaddress = true;
+                // bool updateaddress = true;
                 u64 nextaddress = metadata.main_nso_extents.base;  //m_mainBaseAddr;
                 for (int z = bookmark.pointer.depth; z >= 0; z--) {
                     nextaddress += bookmark.pointer.offset[z];
                     MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
                     if (meminfo.perm == Perm_Rw)
                         if (z == 0) {
-                            if (address == nextaddress)
-                                updateaddress = false;
-                            else {
+                            if (address == nextaddress) {
+                                // updateaddress = false;
+                            } else {
                                 address = nextaddress;
                             }
                         } else
                             m_debugger->readMemory(&nextaddress, ((m_32bitmode) ? sizeof(u32) : sizeof(u64)), nextaddress);
                     else {
-                        updateaddress = false;
+                        // updateaddress = false;
                         break;
                     }
                 }
@@ -1331,15 +1334,15 @@ static std::string _getAddressDisplayString(u64 address, Debugger *debugger, sea
                 //   ss << std::dec << static_cast<s64>(searchValue._s64);
                 break;
             case SEARCH_TYPE_FLOAT_32BIT:
-                snprintf(ss, sizeof ss, "%f", searchValue._f32);
+                snprintf(ss, sizeof ss, "%.2f", searchValue._f32);
                 //   ss << std::dec << searchValue._f32;
                 break;
             case SEARCH_TYPE_FLOAT_64BIT:
-                snprintf(ss, sizeof ss, "%lf", searchValue._f64);
+                snprintf(ss, sizeof ss, "%.2lf", searchValue._f64);
                 //   ss << std::dec << searchValue._f64;
                 break;
             case SEARCH_TYPE_POINTER:
-                snprintf(ss, sizeof ss, "0x%016lX", searchValue._u64);
+                snprintf(ss, sizeof ss, "0x%010lX", searchValue._u64);
                 //   ss << std::dec << searchValue._u64;
                 break;
             case SEARCH_TYPE_NONE:
@@ -1681,10 +1684,16 @@ void getcheats(){ // WIP
         refresh_cheats = false;
     };
     if (m_show_only_enabled_cheats) {
-        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "\n");
+        if (m_displayed_cheat_lines > 0) {
+        snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
         snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
-        snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "Enabled Cheats\n");
+        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "Enabled Cheats %d\n",m_displayed_cheat_lines);
         m_displayed_cheat_lines = 0;
+        } else {
+            CheatsLabelsStr[0] = 0;
+            CheatsCursor[0] = 0;
+            CheatsEnableStr[0] = 0;
+        }
     } else {
         total_opcode = 0;
         for (u8 i = 0; i < m_cheatCnt; i++)
@@ -1729,15 +1738,18 @@ void getcheats(){ // WIP
             if ((m_cheat_index == line) && (m_editCheat) && !m_cursor_on_bookmark) {
                 snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
             } else {
-                snprintf(ss, sizeof ss, "%s%s %s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str);
                 if (m_outline.size() > 1 && !m_show_only_enabled_cheats) {
                     for (auto entry : m_outline) {
                         if (m_cheats[line + m_cheatlist_offset].cheat_id == entry.index + 1) {
-                            snprintf(ss, sizeof ss, "%s%s %s[%s]\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str, entry.label.c_str());
+                            snprintf(ss, sizeof ss, "[%s]\n", entry.label.c_str());
+                            strcat(CheatsLabelsStr, "\n");
+                            strcat(CheatsCursor, "\n");
+                            strcat(CheatsEnableStr, ss);
                         }
                         if (entry.index + 1 > m_cheats[line + m_cheatlist_offset].cheat_id) break;
                     }
                 }
+                snprintf(ss, sizeof ss, "%s%s %s\n", namestr, m_cheats[line + m_cheatlist_offset].definition.readable_name, toggle_str);
             }
             strcat(CheatsLabelsStr, ss);
             m_displayed_cheat_lines++;
@@ -1761,15 +1773,23 @@ class BookmarkOverlay : public tsl::Gui {
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
             // if (GameRunning == false)
             // fontsize = 20;
-            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth, (fontsize+3) * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
+            std::pair<u32, u32> extent1;
+            renderer->m_maxY = 0;
             // else
+            extent1 = renderer->drawString(Title_str.c_str(), false, 5, fontsize +5 , fontsize, renderer->a(0xFFFF));
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
+            renderer->m_maxX = 0;
 
-            renderer->drawString(BookmarkLabels, false, 45, fontsize, fontsize, renderer->a(0xFFFF));
+            renderer->drawString(BookmarkLabels, false, 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(Variables, false, 190, fontsize, fontsize, renderer->a(0xFFFF));
+            renderer->drawString(Variables, false, renderer->m_maxX + 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
 
-            renderer->drawString(MultiplierStr, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
+            renderer->drawString(MultiplierStr, false, renderer->m_maxX + 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+
+        // strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
+            renderer->drawString(CheatsLabelsStr, false, 5, renderer->m_maxY, fontsize, renderer->a(0xFFFF));
+            // renderer->drawRect(0, 0, std::max(5 + extent2.first, 190 + extent1.first) + 5, (fontsize + 3) * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
+            renderer->drawRect(0, 0, std::max(renderer->m_maxX, extent1.first + 5) + 5, renderer->m_maxY + 5 - fontsize, a(0x7111));
         });
 
         rootFrame->setContent(Status);
@@ -1793,10 +1813,19 @@ class BookmarkOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n");
-        snprintf(Variables, sizeof Variables, "\n");
-        snprintf(Cursor, sizeof Cursor, "\n");
-        snprintf(MultiplierStr, sizeof MultiplierStr, "\uE0A6+\uE0A4/\uE0A5 Font size  \uE0A6+\uE0A1 Exit\n");
+        BookmarkLabels[0] = 0;
+        Variables[0] = 0;
+        Cursor[0] = 0;
+        MultiplierStr[0] = 0;
+        if (b_showkeyhint) {
+            // snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
+            // snprintf(Variables, sizeof Variables, "\n");
+            // snprintf(Cursor, sizeof Cursor, "\n");
+            // snprintf(BookmarkLabels, sizeof BookmarkLabels, "\uE0A6+\uE0A4/\uE0A5 Font size  \uE0A6+\uE0A1 Exit\n");
+            Title_str = "\uE0A6+\uE0A4/\uE0A5 Font size  \uE0A6+\uE0A1 Exit\n";
+        } else {
+            Title_str = "";
+        }
         m_displayed_bookmark_lines = 0;
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
@@ -1819,22 +1848,22 @@ class BookmarkOverlay : public tsl::Gui {
                 // if (false)
                 if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
                 {
-                    bool updateaddress = true;
+                    // bool updateaddress = true;
                     u64 nextaddress = metadata.main_nso_extents.base;  //m_mainBaseAddr;
                     for (int z = bookmark.pointer.depth; z >= 0; z--) {
                         nextaddress += bookmark.pointer.offset[z];
                         MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
                         if (meminfo.perm == Perm_Rw)
                             if (z == 0) {
-                                if (address == nextaddress)
-                                    updateaddress = false;
-                                else {
+                                if (address == nextaddress) {
+                                    // updateaddress = false;
+                                } else {
                                     address = nextaddress;
                                 }
                             } else
                                 m_debugger->readMemory(&nextaddress, ((m_32bitmode) ? sizeof(u32) : sizeof(u64)), nextaddress);
                         else {
-                            updateaddress = false;
+                            // updateaddress = false;
                             break;
                         }
                     }
@@ -1914,8 +1943,8 @@ class BookmarkOverlay : public tsl::Gui {
         m_show_only_enabled_cheats = true;
         m_cheatlist_offset = 0;
         getcheats();
-        strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
-        strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
+        // strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
+        // strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         for (auto entry : m_toggle_list) {
@@ -2204,15 +2233,30 @@ class SetMultiplierOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n");
-        snprintf(Variables, sizeof Variables, "\n\n\n\n");
-        if (m_cursor_on_bookmark)
-            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete\n",
-                     m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
-        else
-            snprintf(Cursor, sizeof Cursor, "%s %s  PID %03ld\nTID %016lX  BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n",
-                     m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
-        snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n");
+        if (b_showkeyhint) {
+            if (m_cursor_on_bookmark){
+                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete\n",
+                         m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+                snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n");
+                snprintf(Variables, sizeof Variables, "\n\n\n\n");
+                snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n");
+            } else {
+                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n\uE0C4 Change/Add toggle key, \uE0A6+\uE0C4 Remove toggle key\n",
+                         m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+                snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n\n");
+                snprintf(Variables, sizeof Variables, "\n\n\n\n\n");
+                snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n\n");
+            }
+        } else {
+            // BookmarkLabels[0] = 0;
+            // Variables[0] = 0;
+            // Cursor[0] = 0;
+            // MultiplierStr[0] = 0;
+            snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
+            snprintf(Variables, sizeof Variables, "\n\n");
+            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+            snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
+        }
         // BookmarkLabels[0]=0;
         // Variables[0]=0;
         // snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
@@ -2235,22 +2279,22 @@ class SetMultiplierOverlay : public tsl::Gui {
                 // if (false)
                 if (bookmark.pointer.depth > 0)  // check if pointer chain point to valid address update address if necessary
                 {
-                    bool updateaddress = true;
+                    // bool updateaddress = true;
                     u64 nextaddress = metadata.main_nso_extents.base;  //m_mainBaseAddr;
                     for (int z = bookmark.pointer.depth; z >= 0; z--) {
                         nextaddress += bookmark.pointer.offset[z];
                         MemoryInfo meminfo = m_debugger->queryMemory(nextaddress);
                         if (meminfo.perm == Perm_Rw)
                             if (z == 0) {
-                                if (address == nextaddress)
-                                    updateaddress = false;
-                                else {
+                                if (address == nextaddress) {
+                                    // updateaddress = false;
+                                } else {
                                     address = nextaddress;
                                 }
                             } else
                                 m_debugger->readMemory(&nextaddress, ((m_32bitmode) ? sizeof(u32) : sizeof(u64)), nextaddress);
                         else {
-                            updateaddress = false;
+                            // updateaddress = false;
                             break;
                         }
                     }
@@ -2327,12 +2371,12 @@ class SetMultiplierOverlay : public tsl::Gui {
             return;
         }
         if (m_show_outline) {
-            strncat(Cursor, "Cheats outline \uE092\uE093 \uE0A0 Select, \uE0A6+\uE0A7 Toggle outline mode\n", sizeof Cursor - 1); 
+            strncat(Cursor, "Cheats outline \uE092\uE093 \uE0A0 Select\n", sizeof Cursor - 1); //, \uE0A6+\uE0A7 Toggle outline mode
             strncat(BookmarkLabels, "\n", sizeof BookmarkLabels - 1);
             strncat(MultiplierStr, "\n", sizeof MultiplierStr - 1);
             for (u8 i = 0; i < m_outline.size(); i++) {
-                strncat(MultiplierStr, (i == m_outline_index) ? "\uE019\n" : "\n", sizeof MultiplierStr - 1);
-                strncat(BookmarkLabels, ("[" + m_outline[i].label + "]\n").c_str(), sizeof BookmarkLabels - 1);
+                strncat(Cursor, (i == m_outline_index && !m_cursor_on_bookmark) ? "\uE019\n" : "\n", sizeof MultiplierStr - 1);
+                strncat(MultiplierStr, ("[" + m_outline[i].label + "]\n").c_str(), sizeof BookmarkLabels - 1);
             }
             return;
         }
@@ -2513,6 +2557,9 @@ class SetMultiplierOverlay : public tsl::Gui {
             };
             return true;
         }
+        if (keysDown & HidNpadButton_Plus && keysHeld & HidNpadButton_ZL) {
+            b_showkeyhint = !b_showkeyhint;
+        };
         if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
             TeslaFPS = 20;
             refreshrate = 1;
@@ -2529,11 +2576,11 @@ class SetMultiplierOverlay : public tsl::Gui {
             save_breeze_action_to_file = false;
             return true;
         }
-        if ((keysHeld & HidNpadButton_ZL) && (keysDown & HidNpadButton_ZR)) {  // enter outline mode
-            m_show_outline = !m_show_outline;
-            if (m_show_outline) m_cursor_on_bookmark = false;
-            return true;
-        }
+        // if ((keysHeld & HidNpadButton_ZL) && (keysDown & HidNpadButton_ZR)) {  // enter outline mode
+        //     m_show_outline = !m_show_outline;
+        //     if (m_show_outline) m_cursor_on_bookmark = false;
+        //     return true;
+        // }
         if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
             fontsize++;
             return true;
@@ -2542,11 +2589,37 @@ class SetMultiplierOverlay : public tsl::Gui {
             fontsize--;
             return true;
         }
-        if (m_show_outline) {
+        if (keysDown & HidNpadButton_AnyLeft) {
+            if (m_show_outline) {
+                if (m_AttributeDumpBookmark->size() > 0) {
+                    m_cursor_on_bookmark = true;
+                }
+            } else if (m_outline.size() > 1)
+                m_show_outline = true;
+            else if (m_AttributeDumpBookmark->size() > 0) {
+                m_cursor_on_bookmark = true;
+            }
+            return true;
+        }
+        if (keysDown & HidNpadButton_AnyRight) {
+            if (m_cursor_on_bookmark && m_cheatCnt > 0) {
+                if (m_outline.size() > 1) m_show_outline = true;
+                m_cursor_on_bookmark = false;
+            } else if (m_show_outline) {
+                m_cheatlist_offset = m_outline[m_outline_index].index;
+                m_cheat_index = 0;
+                m_show_outline = false;
+            }
+            return true;
+        }
+        if (m_show_outline && !m_cursor_on_bookmark) {
             if ((keysDown & HidNpadButton_AnyUp) || (keysHeld & HidNpadButton_StickRUp)) {
-                if (m_outline_index > 0) m_outline_index--;
+                if (m_outline_index > 0)
+                    m_outline_index--;
+                else if (m_AttributeDumpBookmark->size() > 0)
+                    m_cursor_on_bookmark = true;
                 return true;
-            };
+            }
             if ((keysDown & HidNpadButton_AnyDown) || (keysHeld & HidNpadButton_StickRDown)) {
                 if (m_outline_index < m_outline.size() - 1) m_outline_index++;
                 return true;
@@ -2724,16 +2797,6 @@ class SetMultiplierOverlay : public tsl::Gui {
                     dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
             }
             refresh_cheats = true;
-            return true;
-        }
-        if (keysDown & HidNpadButton_AnyLeft) {
-            if (!m_show_outline)
-            if (m_AttributeDumpBookmark->size() > 0) m_cursor_on_bookmark = true; 
-            return true;
-        }
-        if (keysDown & HidNpadButton_AnyRight) {
-            if (m_cheatCnt > 0)
-                    m_cursor_on_bookmark = false;
             return true;
         }
         if (keysDown & HidNpadButton_ZR) {
@@ -2983,7 +3046,7 @@ class MainMenu : public tsl::Gui { // WIP
             getcheats();
             loadtoggles();
             refresh_cheats = true;
-            if (m_outline.size() > 1 && m_AttributeDumpBookmark->size() == 0) {
+            if (m_outline.size() > 1) {  // && m_AttributeDumpBookmark->size() == 0) {
                 m_show_outline = true;
                 m_cursor_on_bookmark = false;
             }
