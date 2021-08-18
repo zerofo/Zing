@@ -1,10 +1,13 @@
 #include "config.hpp"
+#include <sys/stat.h>
 
 static Config::config_data_t configData;
 
 void Config::readConfig() {
 memset(&configData, 0x00, sizeof(config_data_t));
-
+mkdir("/switch", 0777);
+mkdir(EDIZON_DIR "", 0777);
+snprintf(configData.edizon_dir, sizeof configData.edizon_dir, EDIZON_DIR);
 if (access(CONFIG_PATH, F_OK) == 0) {
     FILE *configFile = fopen(CONFIG_PATH, "r+");
     fread(&configData, 1, sizeof(config_data_t), configFile);
