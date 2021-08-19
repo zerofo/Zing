@@ -580,6 +580,8 @@ class FullOverlay : public tsl::Gui {
 // Bookmark display
 // WIP
 bool b_showkeyhint = true;
+bool b_showallcheats = true;
+tsl::elm::ToggleListItem *ShowALlCheats, *ShowKeyHints;
 std::string Title_str = "";
 #define MAX_POINTER_DEPTH 12
 struct pointer_chain_t {
@@ -717,7 +719,7 @@ Debugger *m_debugger;
 // MemoryDump *m_memoryDump;
 MemoryDump *m_AttributeDumpBookmark = nullptr;
 u8 m_addresslist_offset = 0;
-u32 m_cheatlist_offset = 0;
+u32 m_cheatlist_offset = 0, m_cheatlist_offset_save = 0;
 bool m_32bitmode = false;
 static const std::vector<u8> dataTypeSizes = {1, 1, 2, 2, 4, 4, 8, 8, 4, 8, 8};
 searchValue_t m_oldvalue[NUM_bookmark] = {0};
@@ -1711,6 +1713,7 @@ void getcheats(){ // WIP
         };
         if ((line + m_cheatlist_offset) >= m_cheatCnt)
             break;
+        if (!ShowALlCheats->getState() && m_outline_index < (m_outline.size() - 1) && m_outline[m_outline_index + 1].index < m_cheats[line + m_cheatlist_offset].cheat_id) break;
         {   
             char namestr[100] = "";
             char toggle_str[100] = "";
@@ -1817,14 +1820,15 @@ class BookmarkOverlay : public tsl::Gui {
         Variables[0] = 0;
         Cursor[0] = 0;
         MultiplierStr[0] = 0;
-        if (b_showkeyhint) {
+        // if (b_showkeyhint) {
+        if (ShowKeyHints->getState()) {
             // snprintf(MultiplierStr, sizeof MultiplierStr, "\n");
             // snprintf(Variables, sizeof Variables, "\n");
             // snprintf(Cursor, sizeof Cursor, "\n");
             // snprintf(BookmarkLabels, sizeof BookmarkLabels, "\uE0A6+\uE0A4/\uE0A5 Font size  \uE0A6+\uE0A1 Exit\n");
             Title_str = "\uE0A6+\uE0A4/\uE0A5 Font size  \uE0A6+\uE0A1 Exit\n";
         } else {
-            Title_str = "";
+            Title_str = "\uE0A6+\uE0A1 Exit\n";
         }
         m_displayed_bookmark_lines = 0;
         // BookmarkLabels[0]=0;
@@ -1968,7 +1972,11 @@ class BookmarkOverlay : public tsl::Gui {
         if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
             // CloseThreads();
             // cleanup_se_tools();
-            m_cheatlist_offset = 0;
+            m_cheatlist_offset = m_cheatlist_offset_save;
+            // if (m_outline.size() > 1)
+            //     m_cheatlist_offset = m_outline[m_outline_index].index;
+            // else
+            //     m_cheatlist_offset = 0;
             TeslaFPS = 50;
             refreshrate = 1;
             alphabackground = 0x0;
@@ -2199,7 +2207,7 @@ class CustomOverlay : public tsl::Gui {
 class SetMultiplierOverlay : public tsl::Gui {
    public:
     SetMultiplierOverlay() {
-        m_cheatlist_offset = 0;
+        m_cheatlist_offset = m_cheatlist_offset_save;
     }
     
     virtual tsl::elm::Element *createUI() override {
@@ -2233,15 +2241,15 @@ class SetMultiplierOverlay : public tsl::Gui {
         // snprintf(BookmarkLabels,sizeof BookmarkLabels,"label\nlabe\nGame Runing = %d\n%s\nSaltySD = %d\ndmntchtCheck = 0x%08x\n",GameRunning,bookmarkfilename,SaltySD,dmntchtCheck);
         // snprintf(Variables,sizeof Variables, "100\n200\n\n\n\n\n");
         // strcat(BookmarkLabels,bookmarkfilename);
-        if (b_showkeyhint) {
+        if (ShowKeyHints->getState()) {
             if (m_cursor_on_bookmark){
-                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete\n",
+                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090 nav, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete, \uE0A6\uE0B3 remove Key hint\n\uE04E toggle show all cheats, \uE0A3 find next enabled cheat\n",
                          m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
-                snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n");
-                snprintf(Variables, sizeof Variables, "\n\n\n\n");
-                snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n");
+                snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n\n");
+                snprintf(Variables, sizeof Variables, "\n\n\n\n\n");
+                snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n\n");
             } else {
-                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n\uE0C4 Change/Add toggle key, \uE0A6+\uE0C4 Remove toggle key\n",
+                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090\uE0A4\uE0A5 nav, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n\uE0C4 Change/Add toggle key, \uE0A6+\uE0C4 Remove toggle key\n",
                          m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
                 snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n\n");
                 snprintf(Variables, sizeof Variables, "\n\n\n\n\n");
@@ -2254,7 +2262,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             // MultiplierStr[0] = 0;
             snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
             snprintf(Variables, sizeof Variables, "\n\n");
-            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
             snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
         }
         // BookmarkLabels[0]=0;
@@ -2558,7 +2566,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_Plus && keysHeld & HidNpadButton_ZL) {
-            b_showkeyhint = !b_showkeyhint;
+            ShowKeyHints->setState(!ShowKeyHints->getState());
         };
         if (keysDown & HidNpadButton_B && keysHeld & HidNpadButton_ZL) {
             TeslaFPS = 20;
@@ -2574,6 +2582,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             save_breeze_toggle_to_file = false;
             if (save_breeze_action_to_file) save_breeze_action();
             save_breeze_action_to_file = false;
+            m_cheatlist_offset_save = m_cheatlist_offset;
             return true;
         }
         // if ((keysHeld & HidNpadButton_ZL) && (keysDown & HidNpadButton_ZR)) {  // enter outline mode
@@ -2590,7 +2599,10 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_AnyLeft) {
-            if (m_show_outline) {
+            if (m_cursor_on_bookmark && m_cheatCnt > 0) {
+                m_show_outline = false;
+                m_cursor_on_bookmark = false;
+            } else if (m_show_outline) {
                 if (m_AttributeDumpBookmark->size() > 0) {
                     m_cursor_on_bookmark = true;
                 }
@@ -2609,7 +2621,47 @@ class SetMultiplierOverlay : public tsl::Gui {
                 m_cheatlist_offset = m_outline[m_outline_index].index;
                 m_cheat_index = 0;
                 m_show_outline = false;
+            } else if (m_AttributeDumpBookmark->size() > 0) {
+                m_cursor_on_bookmark = true;
             }
+            return true;
+        }
+        if (keysDown & HidNpadButton_X) {
+            ShowALlCheats->setState(!ShowALlCheats->getState());
+        }
+        if (keysDown & HidNpadButton_Y) {  //find next enabled cheat
+            m_show_outline = false;
+            m_cursor_on_bookmark = false;
+            ShowALlCheats->setState(true);
+            // getcheats();
+            // if (total_opcode == 0) return true;
+            if ((m_cheat_index + m_cheatlist_offset) >= m_cheatCnt - 1) {
+                m_cheat_index = 0;
+                m_cheatlist_offset = 0;
+                if (m_cheats[m_cheat_index + m_cheatlist_offset].enabled) return true;
+            };
+            do {
+                if ((m_cheat_index < NUM_cheats - 1) && ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1))
+                    m_cheat_index++;
+                else if ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)
+                    m_cheatlist_offset++;
+                else
+                    break;
+            } while (!m_cheats[m_cheat_index + m_cheatlist_offset].enabled);
+            return true;
+        }
+        if (keysDown & HidNpadButton_B) {
+            // CloseThreads();
+            if (save_code_to_file) dumpcodetofile();
+            save_code_to_file = false;
+            if (save_breeze_toggle_to_file) save_breeze_toggle();
+            save_breeze_toggle_to_file = false;
+            if (save_breeze_action_to_file) save_breeze_action();
+            save_breeze_action_to_file = false;
+            m_cheatlist_offset_save = m_cheatlist_offset;
+            dmntchtResumeCheatProcess();
+            // cleanup_se_tools();
+            tsl::goBack();
             return true;
         }
         if (m_show_outline && !m_cursor_on_bookmark) {
@@ -2630,10 +2682,10 @@ class SetMultiplierOverlay : public tsl::Gui {
                 m_show_outline = false;
                 return true;
             }
-            if (keysDown & HidNpadButton_B) {
-                m_show_outline = false;
-                return true;
-            }
+            // if (keysDown & HidNpadButton_B) {
+            //     m_show_outline = false;
+            //     return true;
+            // }
             return true;
         }
         if ((keysDown & HidNpadButton_A) && m_cursor_on_bookmark) {
@@ -2716,6 +2768,15 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (m_cursor_on_bookmark) {
                 if (m_index > 0) m_index--;
             } else {
+                if (m_outline.size() > 1 && m_outline[m_outline_index].index + 1 == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id) {  // && m_outline_index > 0) {
+                    // m_cheatlist_offset = m_outline[m_outline_index].index;
+                    // m_cheat_index = 0;
+                    if (ShowALlCheats->getState()){
+                        if (m_outline_index > 0)
+                            m_outline_index--;
+                    } else
+                        return true;
+                }
                 if (m_cheat_index > 0)
                     m_cheat_index--;
                 else {
@@ -2733,6 +2794,15 @@ class SetMultiplierOverlay : public tsl::Gui {
                 else if (m_cheatCnt > 0)
                     m_cursor_on_bookmark = false;
             } else {
+                if (m_outline.size() > 1 && m_outline_index < (m_outline.size() - 1) && m_outline[m_outline_index + 1].index == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id) {
+                    // m_cheatlist_offset = m_outline[m_outline_index].index;
+                    // m_cheat_index = 0;
+                    if (ShowALlCheats->getState()) {
+                        if (m_outline_index < m_outline.size() - 1)
+                            m_outline_index++;
+                    } else
+                        return true;
+                }
                 if ((m_cheat_index < NUM_cheats - 1) && ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)) m_cheat_index++;
                 else if ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)
                     m_cheatlist_offset++;
@@ -2799,33 +2869,46 @@ class SetMultiplierOverlay : public tsl::Gui {
             refresh_cheats = true;
             return true;
         }
-        if (keysDown & HidNpadButton_ZR) {
-            if (!m_cursor_on_bookmark && m_outline.size() <= 1) {
+        if (keysDown & HidNpadButton_R) { //page down
+            if (!m_cursor_on_bookmark && (m_outline.size() <= 1 || ShowALlCheats->getState())) {
                 if ((m_cheatlist_offset + NUM_cheats) < m_cheatCnt - 1) m_cheatlist_offset += NUM_cheats;
                 if ((m_cheat_index + m_cheatlist_offset) > m_cheatCnt - 1) m_cheat_index = m_cheatCnt - 1 - m_cheatlist_offset;
+                //update m_outline_index
+                size_t i = 0;
+                while (i < m_outline.size() && (m_cheat_index + m_cheatlist_offset) > m_outline[i].index) {
+                    m_outline_index = i;
+                    i++;
+                }
+
+            } else if (!m_cursor_on_bookmark && m_outline.size() > 1) {  // show within outline only case
+                if (m_outline_index < m_outline.size() - 1) m_outline_index++;
+                m_cheatlist_offset = m_outline[m_outline_index].index;
+                m_cheat_index = 0;
             };
             return true;
         }
-        if (keysDown & HidNpadButton_ZL) {
-            if (!m_cursor_on_bookmark && m_outline.size() <= 1) {
-                if (m_cheatlist_offset > NUM_cheats) m_cheatlist_offset -= NUM_cheats; else m_cheatlist_offset = 0;
+        if (keysDown & HidNpadButton_L) { //page up
+            if (!m_cursor_on_bookmark && (m_outline.size() <= 1 || ShowALlCheats->getState())) {
+                if (m_cheatlist_offset > NUM_cheats)
+                    m_cheatlist_offset -= NUM_cheats;
+                else
+                    m_cheatlist_offset = 0;
+                //update m_outline_index
+                size_t i = 0;
+                while (i < m_outline.size() && (m_cheat_index + m_cheatlist_offset) > m_outline[i].index) {
+                    m_outline_index = i;
+                    i++;
+                }
+
+            } else if (!m_cursor_on_bookmark && m_outline.size() > 1) {  // show within outline only case
+                if (m_outline_index > 0) m_outline_index--;
+                m_cheatlist_offset = m_outline[m_outline_index].index;
+                m_cheat_index = 0;
             };
             return true;
         }
-       
-        if (keysDown & HidNpadButton_B) {
-            // CloseThreads();
-            if (save_code_to_file) dumpcodetofile();
-            save_code_to_file = false;
-            if (save_breeze_toggle_to_file) save_breeze_toggle();
-            save_breeze_toggle_to_file = false;
-            if (save_breeze_action_to_file) save_breeze_action();
-            save_breeze_action_to_file = false;  
-            dmntchtResumeCheatProcess();          
-            // cleanup_se_tools();
-            tsl::goBack();
-            return true;
-        }
+
+
         return false;
     }
 };
@@ -2935,6 +3018,14 @@ class MainMenu : public tsl::Gui { // WIP
             return false;
         });
         list->addItem(LoadCheats);
+        ShowALlCheats = new tsl::elm::ToggleListItem("Show All cheats", true);
+        
+        ShowKeyHints = new tsl::elm::ToggleListItem("Show key hints", false);
+
+        list->addItem(ShowALlCheats);
+
+        list->addItem(ShowKeyHints);
+
         } else {
             auto NoCheats = new tsl::elm::ListItem("Dmnt not attached");
             list->addItem(NoCheats);
@@ -3047,8 +3138,8 @@ class MainMenu : public tsl::Gui { // WIP
             loadtoggles();
             refresh_cheats = true;
             if (m_outline.size() > 1) {  // && m_AttributeDumpBookmark->size() == 0) {
-                m_show_outline = true;
-                m_cursor_on_bookmark = false;
+                // m_show_outline = true;
+                // m_cursor_on_bookmark = false;
             }
             // end reload cheats
 
