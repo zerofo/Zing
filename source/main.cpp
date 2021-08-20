@@ -2208,6 +2208,7 @@ class SetMultiplierOverlay : public tsl::Gui {
    public:
     SetMultiplierOverlay() {
         m_cheatlist_offset = m_cheatlist_offset_save;
+        if (m_outline.size() <= 1) ShowALlCheats->setState(true);
     }
     
     virtual tsl::elm::Element *createUI() override {
@@ -2627,7 +2628,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_X) {
-            ShowALlCheats->setState(!ShowALlCheats->getState());
+            if (m_outline.size() > 1)
+                ShowALlCheats->setState(!ShowALlCheats->getState());
         }
         if (keysDown & HidNpadButton_Y) {  //find next enabled cheat
             m_show_outline = false;
