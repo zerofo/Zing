@@ -1,7 +1,8 @@
 # Zing
 ![2021082116344100-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316347-40410f40-f96f-4a27-ae43-ee057cfef447.jpg)
 
-A tesla overlay for game cheating with the following features:
+A tesla overlay for game cheating. 
+# Features 
 ## Monitor Game Memory and Cheat enable status
 1. Show EdiZon SE bookmark value in game real time, show list of cheats enabled
 ![2021082116545100-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316682-941e93df-807a-4e0f-9b57-972228ea7a94.jpg)
