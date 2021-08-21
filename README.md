@@ -27,10 +27,19 @@ A tesla overlay for game cheating.
 2. Use Dpad, Right stick or Left stick for navigation. 
 3. AnyUp and AnyDown moves the cursor up and down.
 4. AnyLeft and AnyRight moves the cursor/change the mode in the a cycle: <- -> Bookmark <- -> Cheat outline <- -> Cheat List <- ->
+5. When on Cheat List L and R either moves between outline group or inc dec the position by 20. 
+6. When on Cheat outline pressing A jump to Cheat List and place the cursor on the first item of the outline group. AnyRight do the same thing.
 ## Key hints
 5. Turn on key hints from the main menu or you can press ZL + to toggle it in "Settings".
+## Assign muliplier to bookmark value
+6. Navigate to the bookmark you want to set a multiplication on. Press L or R to adjust the value of the multiplier. 
+7. This is useful for memory that holds item quantity or attribute value you want to tune the rate of gain.
+## Edit memory value
+9. Press A on the bookmark you want to edit the memory value. A minimalist keyboard will appear. Use AnyUp AnyDown to choose the value, L R to move the cursor position, A to enter and + to finish editing.
+## Enable / Disable Cheats
+19. Move cursor to cheat list item, press A to toggle.
 ## Assign button combos for cheats
-3. Two kind of button combos are available. Button combo that is bind to the cheat code as conditional execute and button combos that trigger the overlay to toggle on/off the cheat code for button hold free enjoyment.
+20. Two kind of button combos are available. Button combo that is bind to the cheat code as conditional execute and button combos that trigger the overlay to toggle on/off the cheat code for button hold free enjoyment.
 4. Rstick button / ZL + Rstick button program / remove conditional execute.
 5. Lstick button / SL + Lstick button program / remove toggle. 
 
@@ -48,5 +57,5 @@ https://user-images.githubusercontent.com/68505331/129448517-4b318293-0405-4b9d-
 https://user-images.githubusercontent.com/68505331/129449230-ff923520-17f1-445e-b756-34a1e0338208.mp4
 
 
-6. In this example the cheat code that moves the game character up and down is assigned to the stick up and stick down as conditional execute and the cheat code hover which makes the game character hover in the air is assign to button R which toggles the cheat on/off. The button combos that is bind to code is shown on the left of the cheat label and the code that toggles the cheat on / off is shown on the right of the cheat label. 
+23. In this example the cheat code that moves the game character up and down is assigned to the stick up and stick down as conditional execute and the cheat code hover which makes the game character hover in the air is assign to button R which toggles the cheat on/off. The button combos that is bind to code is shown on the left of the cheat label and the code that toggles the cheat on / off is shown on the right of the cheat label. 
 7. Some games make full use of every key so holding some key down is at times inconvenient and at other times not practical. There are also cases when most of the time you want the code enabled but occasionally you want to be able to quickly disable it. Moon Jump is very often going to prevent dropping down from platform. A quick way to disable moon jump is a good use case for this feature.
