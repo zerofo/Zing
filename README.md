@@ -23,7 +23,12 @@ A tesla overlay for game cheating.
 # How to use
 ## Activate
 1. Activate the overlay menu to select Zing. 
-## 
+## Navigate
+2. Use Dpad, Right stick or Left stick for navigation. 
+3. AnyUp and AnyDown moves the cursor up and down.
+4. AnyLeft and AnyRight moves the cursor/change the mode in the a cycle: <- -> Bookmark <- -> Cheat outline <- -> Cheat List <- ->
+## Keyhint
+5. Press Zl + to toggle key hints.
 ## Assign button combos for cheats
 3. Two kind of button combos are available. Button combo that is bind to the cheat code as conditional execute and button combos that trigger the overlay to toggle on/off the cheat code for button hold free enjoyment.
 4. Rstick button / ZL + Rstick button program / remove conditional execute.
