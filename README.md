@@ -59,3 +59,12 @@ https://user-images.githubusercontent.com/68505331/129449230-ff923520-17f1-445e-
 
 23. In this example the cheat code that moves the game character up and down is assigned to the stick up and stick down as conditional execute and the cheat code hover which makes the game character hover in the air is assign to button R which toggles the cheat on/off. The button combos that is bind to code is shown on the left of the cheat label and the code that toggles the cheat on / off is shown on the right of the cheat label. 
 7. Some games make full use of every key so holding some key down is at times inconvenient and at other times not practical. There are also cases when most of the time you want the code enabled but occasionally you want to be able to quickly disable it. Moon Jump is very often going to prevent dropping down from platform. A quick way to disable moon jump is a good use case for this feature.
+
+## Create bookmark from cheats
+25. Some cheats can be use to create bookmark. Press + and if the cheat can be used to create bookmark a bookmark of the same name will be created.
+## Creating outline
+26. When there is a label without code, the label will be treated as a outline label.
+## Reloading cheats
+27. Everytime Zing is launched the cheats will be reloaded. 
+28. There is also a button on the main menu to reload cheats. 
+29. Using Zing there is no need to restart the game for update to cheat code to take effect. 
