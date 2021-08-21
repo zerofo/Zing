@@ -1,12 +1,19 @@
 # Zing
-![2021081421404100-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/129448231-12d8e409-78ea-437a-a0f9-78a3cdc40f80.jpg)
-A tesla overlay for game cheating with the following features:
-## Monitor Game Memory
-1. Show up to 10 EdiZon SE bookmark value in game real time
-## Multiply Value Increase
-2. Monitor and multiply value delta by X.
+![2021082116344100-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316347-40410f40-f96f-4a27-ae43-ee057cfef447.jpg)
 
-![2021081421330300-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/129448299-382fa2f2-9416-41bf-ad89-c9ccc8ad488e.jpg)
+A tesla overlay for game cheating with the following features:
+## Monitor Game Memory and Cheat enable status
+1. Show EdiZon SE bookmark value in game real time, show list of cheats enabled
+![2021082116545100-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316682-941e93df-807a-4e0f-9b57-972228ea7a94.jpg)
+
+
+
+## Manage Cheats
+2. Organise cheats with outline labels
+3. Assign multiplier value to increase the speed of gain of game items / attributes. 
+4. Assign key press combo that activates or toggles cheats.
+![2021082116445500-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316786-8bf7b233-6439-400d-8797-220e86a23ff5.jpg)
+
  
 ## Assign button combos for cheats
 3. Two kind of button combos are available. Button combo that is bind to the cheat code as conditional execute and button combos that trigger the overlay to toggle on/off the cheat code for button hold free enjoyment.
@@ -18,7 +25,8 @@ https://user-images.githubusercontent.com/68505331/129448517-4b318293-0405-4b9d-
 
 
 
- 
+
+
 
 
 
