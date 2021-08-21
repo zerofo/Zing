@@ -16,7 +16,14 @@ A tesla overlay for game cheating.
 5. Assign key press combo that activates or toggles cheats.
 ![2021082116445500-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316786-8bf7b233-6439-400d-8797-220e86a23ff5.jpg)
 
- 
+# Installation
+1. Install tesla overlay system from WerWolv. 
+2. Place Breeze-Overlay.ovl in sdmc:/switch/.overlays/ 
+
+# How to use
+## Activate
+1. Activate the overlay menu to select Zing. 
+## 
 ## Assign button combos for cheats
 3. Two kind of button combos are available. Button combo that is bind to the cheat code as conditional execute and button combos that trigger the overlay to toggle on/off the cheat code for button hold free enjoyment.
 4. Rstick button / ZL + Rstick button program / remove conditional execute.
