@@ -27,7 +27,7 @@ A tesla overlay for game cheating.
 2. Use Dpad, Right stick or Left stick for navigation. 
 3. AnyUp and AnyDown moves the cursor up and down.
 4. AnyLeft and AnyRight moves the cursor/change the mode in the a cycle: <- -> Bookmark <- -> Cheat outline <- -> Cheat List <- ->
-5. When on Cheat List L and R either moves between outline group or inc dec the position by 20. 
+5. When on Cheat List L and R either moves between outline group or inc dec the position by 20. Press X to toggle between these two modes.
 6. When on Cheat outline pressing A jump to Cheat List and place the cursor on the first item of the outline group. AnyRight do the same thing.
 ## Key hints
 5. Turn on key hints from the main menu or you can press ZL + to toggle it in "Settings".
