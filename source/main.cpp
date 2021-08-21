@@ -812,7 +812,7 @@ void dumpcodetofile() {
     snprintf(m_toggle_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/toggles.txt", metadata.title_id);
     pfile = fopen(m_cheatcode_path, "w");
     if (pfile != NULL) {
-        snprintf(tmp, 1000, "[Breeze Overlay %s %s %s TID: %016lX BID: %02X%02X%02X%02X%02X%02X%02X%02X]\n\n", APP_VERSION, m_titleName.c_str(), m_versionString.c_str(), metadata.title_id,
+        snprintf(tmp, 1000, "[Zing %s %s %s TID: %016lX BID: %02X%02X%02X%02X%02X%02X%02X%02X]\n\n", APP_VERSION, m_titleName.c_str(), m_versionString.c_str(), metadata.title_id,
                  build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
         fputs(tmp, pfile);
         for (u32 i = 0; i < m_cheatCnt; i++) {
@@ -2271,13 +2271,13 @@ class SetMultiplierOverlay : public tsl::Gui {
         // strcat(BookmarkLabels,bookmarkfilename);
         if (ShowKeyHints->getState()) {
             if (m_cursor_on_bookmark){
-                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090 nav, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete, \uE0A6\uE0B3 remove Key hint\n\uE04E toggle show all cheats, \uE0A3 find next enabled cheat\n",
+                snprintf(Cursor, sizeof Cursor, "Zing " APP_VERSION ", %s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090 nav, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete, \uE0A6\uE0B3 remove Key hint\n\uE04E toggle show all cheats, \uE0A3 find next enabled cheat\n",
                          m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
                 snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n\n");
                 snprintf(Variables, sizeof Variables, "\n\n\n\n\n");
                 snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n\n\n\n");
             } else {
-                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090\uE0A4\uE0A5 nav, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n\uE0C4 Change/Add toggle key, \uE0A6+\uE0C4 Remove toggle key\n",
+                snprintf(Cursor, sizeof Cursor, "Zing " APP_VERSION ", %s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090\uE0A4\uE0A5 nav, \uE0A0 toggle, \uE0B3 add bookmark, \uE0A1 exit\n\uE0C5 Change/Add combo key, \uE0A6+\uE0C5 Remove combo key\n\uE0C4 Change/Add toggle key, \uE0A6+\uE0C4 Remove toggle key\n",
                          m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
                 snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n\n");
                 snprintf(Variables, sizeof Variables, "\n\n\n\n\n");
@@ -2290,7 +2290,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             // MultiplierStr[0] = 0;
             snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
             snprintf(Variables, sizeof Variables, "\n\n");
-            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+            snprintf(Cursor, sizeof Cursor, "Zing " APP_VERSION ", %s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
             snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
         }
         // BookmarkLabels[0]=0;
