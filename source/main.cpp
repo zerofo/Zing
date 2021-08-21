@@ -1706,7 +1706,7 @@ void getcheats(){ // WIP
     };
 
 //  print some extra outline label
-    if (!ShowALlCheats->getState()) {
+    if (!ShowALlCheats->getState() && !m_show_only_enabled_cheats) {
         for (auto entry : m_outline) {
             if (entry.index + m_cheats[0].cheat_id <= m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id) {
                 snprintf(ss, sizeof ss, "[%s]\n", entry.label.c_str());
@@ -1779,7 +1779,7 @@ void getcheats(){ // WIP
         }
     };
     //  print some extra outline label
-    if (!ShowALlCheats->getState()) {
+    if (!ShowALlCheats->getState() && !m_show_only_enabled_cheats) {
         for (auto entry : m_outline) {
             if (entry.index + m_cheats[0].cheat_id <= m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id)
                 continue;
@@ -2992,7 +2992,7 @@ class MainMenu : public tsl::Gui { // WIP
     MainMenu() {}
 
     virtual tsl::elm::Element *createUI() override {
-        auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
+        auto rootFrame = new tsl::elm::OverlayFrame("Zing", APP_VERSION);
         auto list = new tsl::elm::List();
         if (m_debugger->m_dmnt) {
         auto Bookmark = new tsl::elm::ListItem("Activate Monitor");

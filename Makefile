@@ -37,7 +37,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:=	Breeze Overlay
+APP_TITLE	:=	Zing
 APP_VERSION	:=	0.0.15
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
