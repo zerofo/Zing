@@ -9,9 +9,10 @@ A tesla overlay for game cheating with the following features:
 
 
 ## Manage Cheats
-2. Organise cheats with outline labels
-3. Assign multiplier value to increase the speed of gain of game items / attributes. 
-4. Assign key press combo that activates or toggles cheats.
+2. Enable / disable cheats.
+3. Organise cheats with outline labels
+4. Assign multiplier value to increase the speed of gain of game items / attributes. 
+5. Assign key press combo that activates or toggles cheats.
 ![2021082116445500-C2824459B66BC181AB3F3555311FDB2F](https://user-images.githubusercontent.com/68505331/130316786-8bf7b233-6439-400d-8797-220e86a23ff5.jpg)
 
  
