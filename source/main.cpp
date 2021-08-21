@@ -1316,7 +1316,7 @@ static std::string _getAddressDisplayString(u64 address, Debugger *debugger, sea
                 //   ss << std::dec << static_cast<u64>(searchValue._u32);
                 break;
             case SEARCH_TYPE_UNSIGNED_64BIT:
-                snprintf(ss, sizeof ss, "%ld", searchValue._u64);
+                snprintf(ss, sizeof ss, "0x%016lX", searchValue._u64);
                 //   ss << std::dec << static_cast<u64>(searchValue._u64);
                 break;
             case SEARCH_TYPE_SIGNED_8BIT:
