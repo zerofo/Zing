@@ -22,7 +22,7 @@ A tesla overlay for game cheating.
 
 # How to use
 ## Activate
-1. Activate the overlay menu to select Zing. 
+1. Activate the overlay menu to select Zing. Start with the setting screen to select and config the cheating functions. Press ZL+B to move to monitor screen when you are done setting up Zing. You can toggle between Monitor and Settings by pressing ZL+B. When you press ZL+B from monitor screen the game will be frozen so you can do the setting at your leasure. Exiting setting screen will resume the game automatically. You can hide the monitor by pressing the tesla activation buttons. Press tesla activatoin buttons again to unhide the monitor.
 ## Navigate
 2. Use Dpad, Right stick or Left stick for navigation. 
 3. AnyUp and AnyDown moves the cursor up and down.
