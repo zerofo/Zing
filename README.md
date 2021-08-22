@@ -68,6 +68,10 @@ https://user-images.githubusercontent.com/68505331/129449230-ff923520-17f1-445e-
 27. Everytime Zing is launched the cheats will be reloaded. 
 28. There is also a button on the main menu to reload cheats. 
 29. Using Zing there is no need to restart the game for update to cheat code to take effect. 
+# Tips and Tricks
+## Change cheat value
+1. Some cheat value can be changed on the fly by adding from cheat to bookmark. 
+2. After adding to bookmark the value can be edited.
 # Known issue
 1. Tesla takes up significant amount of memory. It is known for some time now that Tesla and EdiZon applet cannot be running at the same time with some games. The symptom is system freeze requiring long press of pwr button to recover. 
 2. Dmnt is set to support only two session. This limit is enforced since atm19. Noexs(my fork) takes up one session. Zing will take one session. EdiZon SE or Breeze will take one session. That would be three so the last one will not be served. The solution is to pick the two you want to use. Exiting Zing (go back to tesla menu will release the session it takes). EdiZon SE or Breeze only takes a session when it is active. Noexs will take one if enabled. I recomment exiting Zing (go back to tesla menu) anyway as a good practice when you want to use any of the other three.
