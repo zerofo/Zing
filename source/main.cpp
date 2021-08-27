@@ -598,6 +598,16 @@ struct bookmark_t {
     u8 multiplier = 1;
 	u16 magic = 0x1289;
 };
+typedef struct {
+    bool is_outline = false;
+    bool always_expanded = false;
+    bool expanded = false;
+    uint32_t index = 0, size = 0;  // index into m_cheats
+} cheat_outline_entry_t;
+std::vector<cheat_outline_entry_t> m_cheat_outline;
+bool m_outline_mode = false;
+bool m_outline_refresh = true;
+bool show_outline_off = false;
 #define NUM_bookmark 10
 #define NUM_cheats 20
 #define NUM_combokey 3
@@ -1392,7 +1402,11 @@ bool deletebookmark(){
 bool addbookmark() {
     // printf("start adding cheat to bookmark\n");
     // m_cheatCnt
-    DmntCheatDefinition cheat = m_cheats[m_cheat_index + m_cheatlist_offset].definition;
+    u32 index = m_cheat_index + m_cheatlist_offset;
+    if (m_outline_mode) {
+        index = m_cheat_outline[index].index;
+    };
+    DmntCheatDefinition cheat = m_cheats[index].definition;
     bookmark_t bookmark;
     memcpy(&bookmark.label, &cheat.readable_name, sizeof(bookmark.label));
     bookmark.pointer.depth = 0;
@@ -1696,7 +1710,97 @@ void getcheats(){ // WIP
             return;
         }
         refresh_cheats = false;
+        // make outline
+        if (m_outline_refresh) {
+        m_outline_refresh = false;    
+        bool hide_entry = false;
+        m_cheat_outline.clear();
+        cheat_outline_entry_t cheat_outline_entry = {};
+        for (u32 i = 0; i < m_cheatCnt; i++) {
+            auto entry = m_cheats[i];
+            if (entry.definition.opcodes[0] == 0x20000000 || entry.definition.opcodes[0] == 0x20000001) { // 0x20000001 is end outline code
+                if (cheat_outline_entry.is_outline) {
+                    cheat_outline_entry.size = i - cheat_outline_entry.index - 1;
+                    m_cheat_outline.push_back(cheat_outline_entry);
+                }
+                cheat_outline_entry.index = i;
+                cheat_outline_entry.is_outline = true;
+                if (entry.definition.opcodes[0] == 0x20000000) {
+                    cheat_outline_entry.always_expanded = false;
+                    cheat_outline_entry.expanded = false;
+                    hide_entry = true;
+                } else {
+                    cheat_outline_entry.expanded = true;
+                    cheat_outline_entry.always_expanded = true;
+                    if (show_outline_off) m_cheat_outline.push_back(cheat_outline_entry); // comment out this line to not show this type of outline
+                    hide_entry = false;
+                }
+            } else if (!hide_entry) {
+                cheat_outline_entry.index = i;
+                cheat_outline_entry.is_outline = false;
+                m_cheat_outline.push_back(cheat_outline_entry);
+            }
+        }
+        if (cheat_outline_entry.is_outline) {
+            cheat_outline_entry.size = m_cheatCnt - 1 - cheat_outline_entry.index;
+            m_cheat_outline.push_back(cheat_outline_entry);
+        };
+        if (m_cheat_outline.size() > 0)
+            m_outline_mode = true;
+        else
+            m_outline_mode = false;
+        }
+        //
     };
+    if (m_outline_mode && !m_show_only_enabled_cheats) { // take over and ignore the rest
+        CheatsLabelsStr[0] = 0;
+        CheatsCursor[0] = 0;
+        CheatsEnableStr[0] = 0;
+        snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
+        snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
+        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "index= %d offset =%d\n",m_cheat_index, m_cheatlist_offset);
+        for (u8 line = 0; line < NUM_cheats; line++) {
+            if ((line + m_cheatlist_offset) >= m_cheat_outline.size())
+                break;
+            {
+                DmntCheatEntry cheat_entry = m_cheats[m_cheat_outline[line + m_cheatlist_offset].index];
+                char namestr[100] = "";
+                char toggle_str[100] = "";
+                int buttoncode = cheat_entry.definition.opcodes[0];
+                if ((buttoncode & 0xF0000000) == 0x80000000)
+                    for (u32 i = 0; i < buttonCodes.size(); i++) {
+                        if ((buttoncode & buttonCodes[i]) == buttonCodes[i])
+                            strcat(namestr, buttonNames[i].c_str());
+                    }
+                if ((m_cheat_index == line) && (m_editCheat) && !m_cursor_on_bookmark) {
+                    snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
+                } else {
+                    if (cheat_entry.definition.opcodes[0] == 0x20000000) {
+                        snprintf(ss, sizeof ss, "[%s%s %s] %d\n", namestr, cheat_entry.definition.readable_name, toggle_str, m_cheat_outline[line + m_cheatlist_offset].size);
+                        strcat(CheatsLabelsStr, "\n");
+                        strcat(CheatsEnableStr, ss);
+                    } else if (cheat_entry.definition.opcodes[0] == 0x20000001) {
+                        snprintf(ss, sizeof ss, "- outline off - [%s]\n", cheat_entry.definition.readable_name);
+                        strcat(CheatsLabelsStr, "\n");
+                        strcat(CheatsEnableStr, ss);
+                    } else {
+                        snprintf(ss, sizeof ss, "%s%s %s\n", namestr, cheat_entry.definition.readable_name, toggle_str);
+                        strcat(CheatsLabelsStr, ss);
+                        if (m_show_only_enabled_cheats)
+                            snprintf(ss, sizeof ss, "\n");
+                        else
+                            snprintf(ss, sizeof ss, "%s\n", (cheat_entry.enabled) ? "\u25A0" : "\u25A1");
+                        strcat(CheatsEnableStr, ss);
+                    }
+                }
+                snprintf(ss, sizeof ss, "%s\n", ((m_cheat_index == line) && (!m_show_only_enabled_cheats) && !m_cursor_on_bookmark) ? "\uE019" : "");
+                strcat(CheatsCursor, ss);
+                m_displayed_cheat_lines++;
+            }
+        }
+        return;
+    }
+    // End make outline
     if (m_show_only_enabled_cheats) {
         if (m_displayed_cheat_lines > 0) {
         snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
@@ -2652,7 +2756,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 if (m_AttributeDumpBookmark->size() > 0) {
                     m_cursor_on_bookmark = true;
                 }
-            } else if (m_outline.size() > 1)
+            } else if (m_outline.size() > 1 && !m_outline_mode) 
                 m_show_outline = true;
             else if (m_AttributeDumpBookmark->size() > 0) {
                 m_cursor_on_bookmark = true;
@@ -2661,7 +2765,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         }
         if (keysDown & HidNpadButton_AnyRight) {
             if (m_cursor_on_bookmark && m_cheatCnt > 0) {
-                if (m_outline.size() > 1) m_show_outline = true;
+                if (m_outline.size() > 1 && !m_outline_mode) m_show_outline = true;
                 m_cursor_on_bookmark = false;
             } else if (m_show_outline) {
                 m_cheatlist_offset = m_outline[m_outline_index].index;
@@ -2672,15 +2776,25 @@ class SetMultiplierOverlay : public tsl::Gui {
             }
             return true;
         }
-        if (keysDown & HidNpadButton_X) {
+        if (keysDown & HidNpadButton_X && !(keysHeld & HidNpadButton_ZL)) {
+            if (m_outline_mode) return true;
             if (m_outline.size() > 1) {
                 ShowALlCheats->setState(!ShowALlCheats->getState());
                 m_cheatlist_offset = m_outline[m_outline_index].index;
                 m_cheat_index = 0;
             }
+            return true;
+        }
+        if (keysDown & HidNpadButton_X && (keysHeld & HidNpadButton_ZL)) {
+            m_outline_mode = !m_outline_mode;
+            if (m_outline_mode) ShowALlCheats->setState(true);
+            m_cheat_index = 0;
+            m_cheatlist_offset = 0;
+            return true;
         }
         if (keysDown & HidNpadButton_Y) {  //find next enabled cheat
             m_show_outline = false;
+            m_outline_mode = false;
             m_cursor_on_bookmark = false;
             ShowALlCheats->setState(true);
             // getcheats();
@@ -2839,9 +2953,10 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         };
         if ((keysDown & HidNpadButton_AnyDown) || (keysHeld & HidNpadButton_StickRDown)) {
+            u32 m_cheatlineCnt = (m_outline_mode) ? m_cheat_outline.size() : m_cheatCnt;
             if (m_cursor_on_bookmark) {
                 if ((m_index < NUM_bookmark - 1) && ((m_index + m_addresslist_offset) < (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) - 1))) m_index++;
-                else if (m_cheatCnt > 0)
+                else if (m_cheatlineCnt > 0)
                     m_cursor_on_bookmark = false;
             } else {
                 if (m_outline.size() > 1 && m_outline_index < (m_outline.size() - 1) && m_outline[m_outline_index + 1].index == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id + 1 - m_cheats[0].cheat_id) {
@@ -2853,8 +2968,8 @@ class SetMultiplierOverlay : public tsl::Gui {
                     } else
                         return true;
                 }
-                if ((m_cheat_index < NUM_cheats - 1) && ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)) m_cheat_index++;
-                else if ((m_cheat_index + m_cheatlist_offset) < m_cheatCnt - 1)
+                if ((m_cheat_index < NUM_cheats - 1) && ((m_cheat_index + m_cheatlist_offset) < m_cheatlineCnt - 1)) m_cheat_index++;
+                else if ((m_cheat_index + m_cheatlist_offset) < m_cheatlineCnt - 1)
                     m_cheatlist_offset++;
             }
             return true;
@@ -2909,22 +3024,47 @@ class SetMultiplierOverlay : public tsl::Gui {
             m_AttributeDumpBookmark->putData((m_index + m_addresslist_offset) * sizeof(bookmark_t), &bookmark, sizeof(bookmark_t));
             return true;
         };
-        if ((keysDown & HidNpadButton_A) && !m_cursor_on_bookmark) {
-            if (m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] == 0x20000000) {
+        if ((keysDown & HidNpadButton_A) && !m_cursor_on_bookmark) { //*** toggle cheats / expand outline
+            u32 index = m_cheat_index + m_cheatlist_offset;
+            if (m_outline_mode) {
+                auto entry = m_cheat_outline[index];
+                if (entry.is_outline && !entry.always_expanded) {
+                        if (!entry.expanded) {
+                            for (u32 i = 1; i <= entry.size; i++) {
+                                cheat_outline_entry_t new_entry = {};
+                                new_entry.index = entry.index + i;
+                                m_cheat_outline.insert(m_cheat_outline.begin() + index + i, new_entry);
+                            }
+                            entry.expanded = true;
+                        } else {
+                            m_cheat_outline.erase(m_cheat_outline.begin() + index + 1, m_cheat_outline.begin() + index + 1 + entry.size);
+                            entry.expanded = false;
+                        };
+                        m_cheat_outline[index] = entry;
+                        refresh_cheats = true;
+                        return true;
+                }
+                index = entry.index;
+            } else if (m_cheats[index].definition.opcodes[0] == 0x20000000) {
                 if (m_outline.size() > 1)
                     m_show_outline = true;
                 return true;
             }
-            if (m_cheats[m_cheat_index + m_cheatlist_offset].enabled)
-                dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+            if (m_cheats[index].enabled)
+                dmntchtToggleCheat(m_cheats[index].cheat_id);
             else {
-                if (m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes + total_opcode <= MaximumProgramOpcodeCount)
-                    dmntchtToggleCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+                if (m_cheats[index].definition.num_opcodes + total_opcode <= MaximumProgramOpcodeCount)
+                    dmntchtToggleCheat(m_cheats[index].cheat_id);
             }
             refresh_cheats = true;
             return true;
         }
         if (keysDown & HidNpadButton_R) { //page down
+            if (m_outline_mode) {
+                if ((m_cheatlist_offset + NUM_cheats) < m_cheat_outline.size() - 1) m_cheatlist_offset += NUM_cheats;
+                if ((m_cheat_index + m_cheatlist_offset) > m_cheat_outline.size() - 1) m_cheat_index = m_cheat_outline.size() - 1 - m_cheatlist_offset;
+                return true;
+            }
             if (!m_cursor_on_bookmark && (m_outline.size() <= 1 || ShowALlCheats->getState())) {
                 if ((m_cheatlist_offset + NUM_cheats) < m_cheatCnt - 1) m_cheatlist_offset += NUM_cheats;
                 if ((m_cheat_index + m_cheatlist_offset) > m_cheatCnt - 1) m_cheat_index = m_cheatCnt - 1 - m_cheatlist_offset;
