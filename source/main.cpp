@@ -1756,9 +1756,12 @@ void getcheats(){ // WIP
         CheatsLabelsStr[0] = 0;
         CheatsCursor[0] = 0;
         CheatsEnableStr[0] = 0;
+        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "\n");
         snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
-        snprintf(CheatsCursor, sizeof CheatsCursor, "\n");
-        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "index= %d offset =%d\n",m_cheat_index, m_cheatlist_offset);
+        u32 Enable_count = 0;
+        for (u8 i = 0; i < m_cheatCnt; i++)
+            if (m_cheats[i].enabled) Enable_count ++;
+        snprintf(CheatsCursor, sizeof CheatsCursor, "Cheat id = %d, Total enabled = %d/%ld\n", m_cheat_outline[m_cheat_index + m_cheatlist_offset].index, Enable_count, m_cheatCnt);
         for (u8 line = 0; line < NUM_cheats; line++) {
             if ((line + m_cheatlist_offset) >= m_cheat_outline.size())
                 break;
