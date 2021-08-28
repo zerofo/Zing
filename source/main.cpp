@@ -1761,7 +1761,7 @@ void getcheats(){ // WIP
         u32 Enable_count = 0;
         for (u8 i = 0; i < m_cheatCnt; i++)
             if (m_cheats[i].enabled) Enable_count ++;
-        snprintf(CheatsCursor, sizeof CheatsCursor, "Cheat id = %d, Total enabled = %d/%ld\n", m_cheat_outline[m_cheat_index + m_cheatlist_offset].index, Enable_count, m_cheatCnt);
+        snprintf(CheatsCursor, sizeof CheatsCursor, "Cheat id = %d, Total enabled = %d/%ld\n", m_cheats[m_cheat_outline[m_cheat_index + m_cheatlist_offset].index].cheat_id, Enable_count, m_cheatCnt);
         for (u8 line = 0; line < NUM_cheats; line++) {
             if ((line + m_cheatlist_offset) >= m_cheat_outline.size())
                 break;
