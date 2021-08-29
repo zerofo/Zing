@@ -1016,7 +1016,10 @@ bool loadcheatsfromfile() {
                             last_entry = _index;
                         }
                     }
-                    dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                    if (cheatentry.enabled == true)
+                        dmntchtSetMasterCheat(&(cheatentry.definition));
+                    else
+                        dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
                     _index++;
                 } 
                 // else 
@@ -1769,6 +1772,21 @@ void getcheats(){ // WIP
                 DmntCheatEntry cheat_entry = m_cheats[m_cheat_outline[line + m_cheatlist_offset].index];
                 char namestr[100] = "";
                 char toggle_str[100] = "";
+                if (!m_show_only_enabled_cheats) {
+                    // sprintf(toggle_str, "size = %ld ", m_toggle_list.size());
+                    for (size_t i = 0; i < m_toggle_list.size(); i++) {
+                        if (m_toggle_list[i].cheat_id == m_cheats[line + m_cheatlist_offset].cheat_id) {
+                            bool match = false;
+                            for (u32 j = 0; j < buttonCodes.size(); j++) {
+                                if ((m_toggle_list[i].keycode & buttonCodes[j]) == (buttonCodes[j] & 0x0FFFFFFF)) {
+                                    strcat(toggle_str, buttonNames[j].c_str());
+                                    match = true;
+                                };
+                            };
+                            if (match) strcat(toggle_str, ", ");
+                        }
+                    }
+                }
                 int buttoncode = cheat_entry.definition.opcodes[0];
                 if ((buttoncode & 0xF0000000) == 0x80000000)
                     for (u32 i = 0; i < buttonCodes.size(); i++) {
@@ -1777,6 +1795,9 @@ void getcheats(){ // WIP
                     }
                 if ((m_cheat_index == line) && (m_editCheat) && !m_cursor_on_bookmark) {
                     snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
+                    strcat(CheatsLabelsStr, ss);
+                    snprintf(ss, sizeof ss, "\n");
+                    strcat(CheatsEnableStr, ss);
                 } else {
                     if (cheat_entry.definition.opcodes[0] == 0x20000000) {
                         snprintf(ss, sizeof ss, "[%s%s %s] %d\n", namestr, cheat_entry.definition.readable_name, toggle_str, m_cheat_outline[line + m_cheatlist_offset].size);
@@ -1872,6 +1893,9 @@ void getcheats(){ // WIP
                 }
             if ((m_cheat_index == line) && (m_editCheat) && !m_cursor_on_bookmark) {
                 snprintf(ss, sizeof ss, "Press key for combo count = %d\n", keycount);
+                strcat(CheatsLabelsStr, ss);
+                snprintf(ss, sizeof ss, "\n");
+                strcat(CheatsEnableStr, ss);
             } else {
                 // if (m_outline.size() > 1 && !m_show_only_enabled_cheats && ShowALlCheats->getState()) {
                 //     for (auto entry : m_outline) {
@@ -2553,6 +2577,8 @@ class SetMultiplierOverlay : public tsl::Gui {
     // WIP Setting
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         static u32 keycode;
+        u32 redirect_index = m_cheat_index + m_cheatlist_offset;
+        if (m_outline_mode) redirect_index = m_cheat_outline[redirect_index].index;
         for (auto entry : m_toggle_list) {
             if (((keysHeld | keysDown) == entry.keycode) && (keysDown & entry.keycode)) {
                 dmntchtToggleCheat(entry.cheat_id);
@@ -2567,7 +2593,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             m_editCheat = false;
             if (m_get_toggle_keycode) {
                 toggle_list_t entry;
-                entry.cheat_id = m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id;
+                entry.cheat_id = m_cheats[redirect_index].cheat_id;
                 entry.keycode = keycode;
                 m_toggle_list.push_back(entry);
                 m_get_toggle_keycode = false;
@@ -2584,23 +2610,23 @@ class SetMultiplierOverlay : public tsl::Gui {
                 m_get_action_keycode = false;
             } else {
                 // edit cheat
-                if ((m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] & 0xF0000000) == 0x80000000) {
-                    m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] = keycode;
+                if ((m_cheats[redirect_index].definition.opcodes[0] & 0xF0000000) == 0x80000000) {
+                    m_cheats[redirect_index].definition.opcodes[0] = keycode;
                 } else {
-                    if (m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes < 0x100 + 2) {
-                        m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes + 1] = 0x20000000;
+                    if (m_cheats[redirect_index].definition.num_opcodes < 0x100 + 2) {
+                        m_cheats[redirect_index].definition.opcodes[m_cheats[redirect_index].definition.num_opcodes + 1] = 0x20000000;
 
-                        for (u32 i = m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes; i > 0; i--) {
-                            m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i] = m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i - 1];
+                        for (u32 i = m_cheats[redirect_index].definition.num_opcodes; i > 0; i--) {
+                            m_cheats[redirect_index].definition.opcodes[i] = m_cheats[redirect_index].definition.opcodes[i - 1];
                         }
-                        m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes += 2;
-                        m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] = keycode;
+                        m_cheats[redirect_index].definition.num_opcodes += 2;
+                        m_cheats[redirect_index].definition.opcodes[0] = keycode;
                     }
                 }
                 // modify cheat
-                dmntchtRemoveCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+                dmntchtRemoveCheat(m_cheats[redirect_index].cheat_id);
                 u32 outid = 0;
-                dmntchtAddCheat(&(m_cheats[m_cheat_index + m_cheatlist_offset].definition), m_cheats[m_cheat_index + m_cheatlist_offset].enabled, &outid);
+                dmntchtAddCheat(&(m_cheats[redirect_index].definition), m_cheats[redirect_index].enabled, &outid);
                 refresh_cheats = true;
             };
             return true;
@@ -2870,7 +2896,9 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (((m_index >= NUM_bookmark) || ((m_index + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) ))) && m_index > 0) m_index--;
             return true;
         }
+        // need update
         if (keysDown & HidNpadButton_StickR && !(keysHeld & HidNpadButton_ZL) && !m_cursor_on_bookmark) {  // programe key combo
+            if (redirect_index == 0 || m_cheats[redirect_index].definition.opcodes[0] == 0x20000000) return true;
             keycode = 0x80000000;
             keycount = NUM_combokey;
             m_editCheat = true;
@@ -2878,20 +2906,22 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_StickR && keysHeld & HidNpadButton_ZL && !m_cursor_on_bookmark) { // remove key combo
-            if ((m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[0] & 0xF0000000) == 0x80000000 && (m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes - 1] & 0xF0000000) == 0x20000000) {
-                for (u32 i = 0; i < m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes - 1; i++) {
-                    m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i] = m_cheats[m_cheat_index + m_cheatlist_offset].definition.opcodes[i + 1];
+            if (redirect_index == 0 || m_cheats[redirect_index].definition.opcodes[0] == 0x20000000) return true;
+            if ((m_cheats[redirect_index].definition.opcodes[0] & 0xF0000000) == 0x80000000 && (m_cheats[redirect_index].definition.opcodes[m_cheats[redirect_index].definition.num_opcodes - 1] & 0xF0000000) == 0x20000000) {
+                for (u32 i = 0; i < m_cheats[redirect_index].definition.num_opcodes - 1; i++) {
+                    m_cheats[redirect_index].definition.opcodes[i] = m_cheats[redirect_index].definition.opcodes[i + 1];
                 };
-                m_cheats[m_cheat_index + m_cheatlist_offset].definition.num_opcodes -= 2;
-                dmntchtRemoveCheat(m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id);
+                m_cheats[redirect_index].definition.num_opcodes -= 2;
+                dmntchtRemoveCheat(m_cheats[redirect_index].cheat_id);
                 u32 outid = 0;
-                dmntchtAddCheat(&(m_cheats[m_cheat_index + m_cheatlist_offset].definition), m_cheats[m_cheat_index + m_cheatlist_offset].enabled, &outid);
+                dmntchtAddCheat(&(m_cheats[redirect_index].definition), m_cheats[redirect_index].enabled, &outid);
                 refresh_cheats = true;
             }
             save_code_to_file = true;
             return true;
         }
         if (keysDown & HidNpadButton_StickL && !(keysHeld & HidNpadButton_ZL)) {  // programe Breeze toggle key combo
+            if (redirect_index == 0 || m_cheats[redirect_index].definition.opcodes[0] == 0x20000000) return true;
             if (m_cursor_on_bookmark) return true;
             keycode = 0x00000000;
             keycount = NUM_combokey;
@@ -2907,6 +2937,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_StickL && keysHeld & HidNpadButton_ZL) {  // remove Breeze toggle key combo
+            if (redirect_index == 0 || m_cheats[redirect_index].definition.opcodes[0] == 0x20000000) return true;
             //delete m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id from m_toggle_list
             if (m_cursor_on_bookmark) {
                 for (size_t i = 0; i < m_breeze_action_list.size(); i++) {
@@ -2917,7 +2948,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 save_breeze_action_to_file = true;
             } else {
                 for (size_t i = 0; i < m_toggle_list.size(); i++) {
-                    while (m_toggle_list[i].cheat_id == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id && i < m_toggle_list.size()) {
+                    while (m_toggle_list[i].cheat_id == m_cheats[redirect_index].cheat_id && i < m_toggle_list.size()) {
                         m_toggle_list.erase(m_toggle_list.begin() + i);
                     }
                 }
