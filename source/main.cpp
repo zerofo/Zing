@@ -1049,6 +1049,9 @@ bool loadcheatsfromfile() {
                 /* s[i+1:j] is cheat name. */
                 const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
                 std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
+                for (u32 i = 0; i < cheat_name_len; i++) {
+                    if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
+                };
                 cheatentry.definition.readable_name[cheat_name_len] = 0;
                 label_len = cheat_name_len;
 
@@ -2383,7 +2386,7 @@ class CustomOverlay : public tsl::Gui {
     }
 };
 #endif
-u32 temp_maxY;
+// u32 temp_maxY;
 class SetMultiplierOverlay : public tsl::Gui {
    public:
     SetMultiplierOverlay() {
@@ -2407,7 +2410,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             renderer->drawString(Cursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
 
             renderer->drawString(MultiplierStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
-            temp_maxY = renderer->m_maxY;
+            // temp_maxY = renderer->m_maxY;
             // if (m_displayed_cheat_lines == m_NUM_cheats)
             // if (m_NUM_cheats < MAX_NUM_cheats)
             m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), MAX_NUM_cheats);
@@ -2448,8 +2451,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             // MultiplierStr[0] = 0;
             snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
             snprintf(Variables, sizeof Variables, "\n\n");
-snprintf(Cursor, sizeof Cursor, "FramebufferHeight = %d, m_maxY = %d\n m=%d = %d + %d \n",tsl::cfg::FramebufferHeight, temp_maxY,m_NUM_cheats,m_displayed_cheat_lines, (s32)(tsl::cfg::FramebufferHeight - temp_maxY) / (fontsize + 3));
-            // snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+// snprintf(Cursor, sizeof Cursor, "FramebufferHeight = %d, m_maxY = %d\n m=%d = %d + %d \n",tsl::cfg::FramebufferHeight, temp_maxY,m_NUM_cheats,m_displayed_cheat_lines, (s32)(tsl::cfg::FramebufferHeight - temp_maxY) / (fontsize + 3));
+            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
             snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
         }
         // BookmarkLabels[0]=0;
@@ -3105,7 +3108,38 @@ snprintf(Cursor, sizeof Cursor, "FramebufferHeight = %d, m_maxY = %d\n m=%d = %d
             refresh_cheats = true;
             return true;
         }
-        if (keysDown & HidNpadButton_R) { //page down
+        if (keysDown & HidNpadButton_R && (keysHeld & HidNpadButton_ZR)) {  // Next label
+            if (m_outline_mode) {
+                auto i = m_cheat_index + m_cheatlist_offset;
+                while (i < m_cheat_outline.size()) {
+                    i++;
+                    if (m_cheat_outline[i].is_outline) {
+                        m_cheatlist_offset = i - m_cheat_index;
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && (keysHeld & HidNpadButton_ZR)) {  // Previous label
+            if (m_outline_mode) {
+                auto i = m_cheat_index + m_cheatlist_offset;
+                while (i > 0) {
+                    i--;
+                    if (m_cheat_outline[i].is_outline) {
+                        if (i >= m_cheat_index)
+                            m_cheatlist_offset = i - m_cheat_index;
+                        else {
+                            m_cheatlist_offset = 0;
+                            m_cheat_index = i;
+                        }
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+        if (keysDown & HidNpadButton_R && !(keysHeld & HidNpadButton_ZR)) {  //page down
             if (m_outline_mode) {
                 if ((m_cheatlist_offset + NUM_cheats) < m_cheat_outline.size() - 1) m_cheatlist_offset += NUM_cheats;
                 if ((m_cheat_index + m_cheatlist_offset) > m_cheat_outline.size() - 1) m_cheat_index = m_cheat_outline.size() - 1 - m_cheatlist_offset;
@@ -3128,7 +3162,7 @@ snprintf(Cursor, sizeof Cursor, "FramebufferHeight = %d, m_maxY = %d\n m=%d = %d
             };
             return true;
         }
-        if (keysDown & HidNpadButton_L) { //page up
+        if (keysDown & HidNpadButton_L && !(keysHeld & HidNpadButton_ZR)) {  //page up
             if (!m_cursor_on_bookmark && (m_outline.size() <= 1 || ShowALlCheats->getState())) {
                 if (m_cheatlist_offset > NUM_cheats)
                     m_cheatlist_offset -= NUM_cheats;
@@ -3148,7 +3182,6 @@ snprintf(Cursor, sizeof Cursor, "FramebufferHeight = %d, m_maxY = %d\n m=%d = %d
             };
             return true;
         }
-
 
         return false;
     }
