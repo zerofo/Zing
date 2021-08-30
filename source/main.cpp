@@ -609,7 +609,9 @@ bool m_outline_mode = false;
 bool m_outline_refresh = true;
 bool show_outline_off = false;
 #define NUM_bookmark 10
-#define NUM_cheats 20
+#define MAX_NUM_cheats 35
+u8 m_NUM_cheats = 20;
+#define NUM_cheats m_NUM_cheats
 #define NUM_combokey 3
 u32 total_opcode = 0;
 #define MaxCheatCount 0x80
@@ -705,12 +707,12 @@ static const std::vector<u32> buttonCodes = {0x80000001,
                                              0x80800000};
 static const std::vector<std::string> buttonNames = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
 
-char BookmarkLabels[NUM_bookmark * 20 + NUM_cheats * 0x41] = "";
-char Cursor[NUM_bookmark * 5 + NUM_cheats * 5 + 1000] = "";
-char MultiplierStr[NUM_bookmark * 5 + NUM_cheats * 0x41 ] = "";
-char CheatsLabelsStr[NUM_cheats * 0x41 ] = "";
-char CheatsCursor[NUM_cheats * 5 +500 ] = "";
-char CheatsEnableStr[NUM_cheats * 0x41] = "";
+char BookmarkLabels[NUM_bookmark * 20 + MAX_NUM_cheats * 0x41] = "";
+char Cursor[NUM_bookmark * 5 + MAX_NUM_cheats * 5 + 1000] = "";
+char MultiplierStr[NUM_bookmark * 5 + MAX_NUM_cheats * 0x41 ] = "";
+char CheatsLabelsStr[MAX_NUM_cheats * 0x41 ] = "";
+char CheatsCursor[MAX_NUM_cheats * 5 +500 ] = "";
+char CheatsEnableStr[MAX_NUM_cheats * 0x41] = "";
 // char m_err_str[500] = "";
 #define m_err_str CheatsLabelsStr
 bool m_show_only_enabled_cheats = true;
@@ -1701,6 +1703,7 @@ class MailBoxOverlay : public tsl::Gui {
 //     }
 // };
 void getcheats(){ // WIP
+    m_displayed_cheat_lines = 0;
     char ss[200] = "";
     if (refresh_cheats) {
         if (m_cheatCnt != 0) delete m_cheats;
@@ -2380,13 +2383,13 @@ class CustomOverlay : public tsl::Gui {
     }
 };
 #endif
+u32 temp_maxY;
 class SetMultiplierOverlay : public tsl::Gui {
    public:
     SetMultiplierOverlay() {
         m_cheatlist_offset = m_cheatlist_offset_save;
         if (m_outline.size() <= 1) ShowALlCheats->setState(true);
     }
-    
     virtual tsl::elm::Element *createUI() override {
         auto rootFrame = new tsl::elm::OverlayFrame("", "");
 
@@ -2396,7 +2399,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth , tsl::cfg::FramebufferHeight, a(0x7111));
             // else
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
-
+            renderer->m_maxY = 0;
             renderer->drawString(BookmarkLabels, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
 
             renderer->drawString(Variables, false, 210, fontsize, fontsize, renderer->a(0xFFFF));
@@ -2404,6 +2407,12 @@ class SetMultiplierOverlay : public tsl::Gui {
             renderer->drawString(Cursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
 
             renderer->drawString(MultiplierStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
+            temp_maxY = renderer->m_maxY;
+            // if (m_displayed_cheat_lines == m_NUM_cheats)
+            // if (m_NUM_cheats < MAX_NUM_cheats)
+            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), MAX_NUM_cheats);
+
+            // if (m_NUM_cheats > MAX_NUM_cheats) m_NUM_cheats = MAX_NUM_cheats;
         });
 
         rootFrame->setContent(Status);
@@ -2439,7 +2448,8 @@ class SetMultiplierOverlay : public tsl::Gui {
             // MultiplierStr[0] = 0;
             snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n");
             snprintf(Variables, sizeof Variables, "\n\n");
-            snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+snprintf(Cursor, sizeof Cursor, "FramebufferHeight = %d, m_maxY = %d\n m=%d = %d + %d \n",tsl::cfg::FramebufferHeight, temp_maxY,m_NUM_cheats,m_displayed_cheat_lines, (s32)(tsl::cfg::FramebufferHeight - temp_maxY) / (fontsize + 3));
+            // snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6\uE0B3 Key hint\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n", m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
             snprintf(MultiplierStr, sizeof MultiplierStr, "\n\n");
         }
         // BookmarkLabels[0]=0;
@@ -2966,6 +2976,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (m_cursor_on_bookmark) {
                 if (m_index > 0) m_index--;
             } else {
+                m_cheat_index = std::min(m_cheat_index, m_NUM_cheats);
                 if (m_outline.size() > 1 && m_outline[m_outline_index].index + m_cheats[0].cheat_id == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id) {  // && m_outline_index > 0) {
                     // m_cheatlist_offset = m_outline[m_outline_index].index;
                     // m_cheat_index = 0;
@@ -2993,6 +3004,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 else if (m_cheatlineCnt > 0)
                     m_cursor_on_bookmark = false;
             } else {
+                m_cheat_index = std::min(m_cheat_index, (u8)(m_NUM_cheats - (u8)1));
                 if (m_outline.size() > 1 && m_outline_index < (m_outline.size() - 1) && m_outline[m_outline_index + 1].index == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id + 1 - m_cheats[0].cheat_id) {
                     // m_cheatlist_offset = m_outline[m_outline_index].index;
                     // m_cheat_index = 0;
