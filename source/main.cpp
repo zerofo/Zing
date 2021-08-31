@@ -610,7 +610,7 @@ bool m_outline_refresh = true;
 bool show_outline_off = false;
 #define NUM_bookmark 10
 #define MAX_NUM_cheats 35
-u8 m_NUM_cheats = 20;
+u32 m_NUM_cheats = 20;
 #define NUM_cheats m_NUM_cheats
 #define NUM_combokey 3
 u32 total_opcode = 0;
@@ -734,10 +734,10 @@ bool m_no_cheats = true;
 bool m_no_bookmarks = true;
 bool m_game_not_running = true;
 bool m_on_show = false;
-u8 m_displayed_bookmark_lines = 0;
-u8 m_displayed_cheat_lines = 0;
-u8 m_index = 0;
-u8 m_cheat_index = 0, m_cheat_index_save = 0;
+u32 m_displayed_bookmark_lines = 0;
+u32 m_displayed_cheat_lines = 0;
+u32 m_index = 0;
+u32 m_cheat_index = 0, m_cheat_index_save = 0;
 std::string m_edizon_dir = "/switch/EdiZon";
 std::string m_store_extension = "A";
 Debugger *m_debugger;
@@ -999,7 +999,7 @@ void load_breeze_action(){
 bool loadcachefromfile() {
     m_cache_outline.clear();
     m_cache.clear();
-    u8 _index = 0;
+    u32 _index = 0;
     // snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
     snprintf(m_cheatcode_path, 128, "sdmc:/switch/zing/%02X%02X%02X%02X%02X%02X%02X%02X.txt", build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
     FILE *pfile;
@@ -1065,9 +1065,9 @@ bool loadcachefromfile() {
                 /* s[i+1:j] is cheat name. */
                 const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
                 std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
-                for (u32 i = 0; i < cheat_name_len; i++) {
-                    if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
-                };
+                // for (u32 i = 0; i < cheat_name_len; i++) {
+                //     if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
+                // };
                 cheatentry.definition.readable_name[cheat_name_len] = 0;
                 label_len = cheat_name_len;
 
@@ -1237,9 +1237,9 @@ bool loadcheatsfromfile() {
                 /* s[i+1:j] is cheat name. */
                 const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
                 std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
-                for (u32 i = 0; i < cheat_name_len; i++) {
-                    if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
-                };
+                // for (u32 i = 0; i < cheat_name_len; i++) {
+                //     if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
+                // };
                 cheatentry.definition.readable_name[cheat_name_len] = 0;
                 label_len = cheat_name_len;
 
@@ -2604,7 +2604,7 @@ class SetMultiplierOverlay : public tsl::Gui {
             // temp_maxY = renderer->m_maxY;
             // if (m_displayed_cheat_lines == m_NUM_cheats)
             // if (m_NUM_cheats < MAX_NUM_cheats)
-            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), MAX_NUM_cheats);
+            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), (u32)MAX_NUM_cheats);
 
             // if (m_NUM_cheats > MAX_NUM_cheats) m_NUM_cheats = MAX_NUM_cheats;
         });
@@ -3266,7 +3266,7 @@ class SetMultiplierOverlay : public tsl::Gui {
                 else if (m_cheatlineCnt > 0)
                     m_cursor_on_bookmark = false;
             } else {
-                m_cheat_index = std::min(m_cheat_index, (u8)(m_NUM_cheats - (u8)1));
+                m_cheat_index = std::min(m_cheat_index, (u32)(m_NUM_cheats - (u32)1));
                 if (m_outline.size() > 1 && m_outline_index < (m_outline.size() - 1) && m_outline[m_outline_index + 1].index == m_cheats[m_cheat_index + m_cheatlist_offset].cheat_id + 1 - m_cheats[0].cheat_id) {
                     // m_cheatlist_offset = m_outline[m_outline_index].index;
                     // m_cheat_index = 0;
@@ -3447,7 +3447,7 @@ class SetMultiplierOverlay : public tsl::Gui {
 };
 class PickCheatsOverlay : public tsl::Gui {
    public:
-    u8 cache_outline_index = 0, cache_outline_offset = 0;
+    u32 cache_outline_index = 0, cache_outline_offset = 0;
     u32 Selected_count = 0, cheat_slot_available = 0;
     PickCheatsOverlay() {
         if (loadcachefromfile()) {
@@ -3470,7 +3470,7 @@ class PickCheatsOverlay : public tsl::Gui {
             renderer->drawString(CheatsLabelsStr, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
             renderer->drawString(CheatsCursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
             renderer->drawString(CheatsEnableStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
-            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), MAX_NUM_cheats);
+            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), (u32)MAX_NUM_cheats);
         });
         rootFrame->setContent(Status);
         return rootFrame;
@@ -3633,7 +3633,7 @@ class PickCheatsOverlay : public tsl::Gui {
         };
         if ((keysDown & HidNpadButton_AnyDown) || (keysHeld & HidNpadButton_StickRDown)) {
             {
-                cache_outline_index = std::min(cache_outline_index, (u8)(m_NUM_cheats - (u8)1));
+                cache_outline_index = std::min(cache_outline_index, (u32)(m_NUM_cheats - (u32)1));
                 if ((cache_outline_index < NUM_cheats - 1) && ((cache_outline_index + cache_outline_offset) < m_cache_outline.size() - 1))
                     cache_outline_index++;
                 else if ((cache_outline_index + cache_outline_offset) < m_cache_outline.size() - 1)
