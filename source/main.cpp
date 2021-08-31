@@ -605,7 +605,7 @@ typedef struct {
     uint32_t index = 0, size = 0;  // index into m_cheats
 } cheat_outline_entry_t;
 std::vector<cheat_outline_entry_t> m_cheat_outline;
-bool m_outline_mode = false;
+bool m_outline_mode = true;
 bool m_outline_refresh = true;
 bool show_outline_off = false;
 #define NUM_bookmark 10
@@ -630,6 +630,19 @@ struct outline_t {
     std::string label;
     u32 index;  // m_cheatlist_offset
 };
+// Cache
+struct cache_outline_t {
+    std::string label;
+    bool selected = false;
+    bool is_outline = false;
+    bool expanded = false;
+    bool always_expanded = false;
+    u32 size = 0;
+    u32 index;  // m_cheatlist_offset
+};
+std::vector<cache_outline_t> m_cache_outline;
+std::vector<DmntCheatEntry> m_cache;
+// end Cache
 u32 m_outline_index = 0;
 bool m_show_outline = false;
 std::vector<outline_t> m_outline;  // WIP
@@ -724,7 +737,7 @@ bool m_on_show = false;
 u8 m_displayed_bookmark_lines = 0;
 u8 m_displayed_cheat_lines = 0;
 u8 m_index = 0;
-u8 m_cheat_index = 0;
+u8 m_cheat_index = 0, m_cheat_index_save = 0;
 std::string m_edizon_dir = "/switch/EdiZon";
 std::string m_store_extension = "A";
 Debugger *m_debugger;
@@ -981,6 +994,181 @@ void load_breeze_action(){
             m_breeze_action_list.push_back(entry);
         }
     delete m_breeze_acton_file;
+}
+// WIP loadcache
+bool loadcachefromfile() {
+    m_cache_outline.clear();
+    m_cache.clear();
+    u8 _index = 0;
+    // snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+    snprintf(m_cheatcode_path, 128, "sdmc:/switch/zing/%02X%02X%02X%02X%02X%02X%02X%02X.txt", build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+    FILE *pfile;
+    pfile = fopen(m_cheatcode_path, "rb");
+    if (pfile != NULL) {
+        fseek(pfile, 0, SEEK_END);
+        size_t len = ftell(pfile);
+        u8 *s = new u8[len];
+        fseek(pfile, 0, SEEK_SET);
+        fread(s, 1, len, pfile);
+        DmntCheatEntry cheatentry;
+        cheatentry.definition.num_opcodes = 0;
+        cheatentry.enabled = false;
+        u8 label_len = 0;
+        size_t i = 0;
+        cache_outline_t entry = {};
+        while (i < len) {
+            if (std::isspace(static_cast<unsigned char>(s[i]))) {
+                /* Just ignore whitespace. */
+                i++;
+            } else if (s[i] == '[') {
+                if (cheatentry.definition.num_opcodes != 0) {
+                    if (cheatentry.definition.opcodes[0] == 0x20000000) {
+                        if (entry.is_outline) {
+                            entry.size = _index - entry.index -1;
+                            m_cache_outline.push_back(entry);
+                        }
+                        entry.index = _index;
+                        entry.expanded = false;
+                        entry.always_expanded = false;
+                        entry.label = cheatentry.definition.readable_name;
+                        entry.is_outline = true;
+                    }
+                    // if (cheatentry.enabled == true)
+                    //     // dmntchtSetMasterCheat(&(cheatentry.definition));
+                    // else
+                        m_cache.push_back(cheatentry);
+                        // dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                    _index++;
+                } 
+                // else 
+                // {
+                //     outline_t entry;
+                //     entry.index = _index;
+                //     entry.label = cheatentry.definition.readable_name;
+                //     if (label_len > 0) {
+                //         if (last_entry == _index) m_cache_outline.pop_back();
+                //         m_cache_outline.push_back(entry);
+                //         last_entry = _index;
+                //     }
+                // }
+                /* Parse a normal cheat set to off */
+                cheatentry.definition.num_opcodes = 0;
+                cheatentry.enabled = false;
+                /* Extract name bounds. */
+                size_t j = i + 1;
+                while (s[j] != ']') {
+                    j++;
+                    if (j >= len) {
+                        return false;
+                    }
+                }
+                /* s[i+1:j] is cheat name. */
+                const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
+                std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
+                for (u32 i = 0; i < cheat_name_len; i++) {
+                    if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
+                };
+                cheatentry.definition.readable_name[cheat_name_len] = 0;
+                label_len = cheat_name_len;
+
+                /* Skip onwards. */
+                i = j + 1;
+            } else if (s[i] == '(') {
+                size_t j = i + 1;
+                while (s[j] != ')') {
+                    j++;
+                    if (j >= len) {
+                        return false;
+                    }
+                }
+                i = j + 1;
+            } else if (s[i] == '{') {
+                if (cheatentry.definition.num_opcodes != 0) {
+                    m_cache.push_back(cheatentry);
+                    _index++;
+                    // dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                }
+                /* We're parsing a master cheat. Turn it on */
+                cheatentry.definition.num_opcodes = 0;
+                cheatentry.enabled = true;
+                /* Extract name bounds */
+                size_t j = i + 1;
+                while (s[j] != '}') {
+                    j++;
+                    if (j >= len) {
+                        return false;
+                    }
+                }
+
+                /* s[i+1:j] is cheat name. */
+                const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
+                memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
+                cheatentry.definition.readable_name[cheat_name_len] = 0;
+                label_len = cheat_name_len;
+                strcpy(cheatentry.definition.readable_name, "master code");
+
+                /* Skip onwards. */
+                i = j + 1;
+            } else if (std::isxdigit(static_cast<unsigned char>(s[i]))) {
+                if (label_len == 0)
+                    return false;
+                /* Bounds check the opcode count. */
+                if (cheatentry.definition.num_opcodes >= sizeof(cheatentry.definition.opcodes) / 4) {
+                    if (cheatentry.definition.num_opcodes != 0) {
+                        m_cache.push_back(cheatentry);
+                        // dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                    }
+                    return false;
+                }
+
+                /* We're parsing an instruction, so validate it's 8 hex digits. */
+                for (size_t j = 1; j < 8; j++) {
+                    /* Validate 8 hex chars. */
+                    if (i + j >= len || !std::isxdigit(static_cast<unsigned char>(s[i + j]))) {
+                        if (cheatentry.definition.num_opcodes != 0) {
+                            m_cache.push_back(cheatentry);
+                            // dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                        }
+                        return false;
+                    }
+                }
+
+                /* Parse the new opcode. */
+                char hex_str[9] = {0};
+                std::memcpy(hex_str, &s[i], 8);
+                cheatentry.definition.opcodes[cheatentry.definition.num_opcodes++] = std::strtoul(hex_str, NULL, 16);
+
+                /* Skip onwards. */
+                i += 8;
+            } else {
+                /* Unexpected character encountered. */
+                if (cheatentry.definition.num_opcodes != 0) {
+                    m_cache.push_back(cheatentry);
+                    // dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+                }
+                return false;
+            }
+        }
+        if (cheatentry.definition.num_opcodes != 0) {
+            m_cache.push_back(cheatentry);
+            // dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
+        }
+        if (entry.is_outline) {
+            entry.size = _index - entry.index - 1;
+            m_cache_outline.push_back(entry);
+        }
+        fclose(pfile);  // take note that if any error occured above this isn't closed
+        return true;
+    }
+    {
+        cache_outline_t entry = {};
+        DmntCheatEntry centry = {};
+        strcat(m_cheatcode_path, " fail to load");
+        strcpy((centry.definition.readable_name), m_cheatcode_path);
+        m_cache.push_back(centry);
+        m_cache_outline.push_back(entry);
+    }
+    return false;
 }
 // WIP loadcheats
 bool loadcheatsfromfile() {
@@ -1715,6 +1903,9 @@ void getcheats(){ // WIP
             m_cheats = new DmntCheatEntry[m_cheatCnt];
             dmntchtGetCheats(m_cheats, m_cheatCnt, 0, &m_cheatCnt);
         } else {
+            CheatsLabelsStr[0] = 0;
+            CheatsCursor[0] = 0;
+            CheatsEnableStr[0] = 0;
             snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "No Cheats available\n");
             return;
         }
@@ -1754,10 +1945,10 @@ void getcheats(){ // WIP
             cheat_outline_entry.size = m_cheatCnt - 1 - cheat_outline_entry.index;
             m_cheat_outline.push_back(cheat_outline_entry);
         };
-        if (m_cheat_outline.size() > 0)
-            m_outline_mode = true;
-        else
-            m_outline_mode = false;
+        // if (m_cheat_outline.size() > 0)
+        //     m_outline_mode = true;
+        // else
+        //     m_outline_mode = false;
         }
         //
     };
@@ -2829,9 +3020,18 @@ class SetMultiplierOverlay : public tsl::Gui {
         }
         if (keysDown & HidNpadButton_X && (keysHeld & HidNpadButton_ZL)) {
             m_outline_mode = !m_outline_mode;
-            if (m_outline_mode) ShowALlCheats->setState(true);
-            m_cheat_index = 0;
-            m_cheatlist_offset = 0;
+            if (m_outline_mode) {
+                ShowALlCheats->setState(true);
+                // m_cheat_index = 0;
+                // m_cheatlist_offset = 0;
+                m_cheat_index = m_cheat_index_save;
+                m_cheatlist_offset = m_cheatlist_offset_save;
+            } else {
+                m_cheat_index_save = m_cheat_index;
+                m_cheatlist_offset_save = m_cheatlist_offset;
+                m_cheat_index = 0;
+                m_cheatlist_offset = redirect_index;
+            }
             return true;
         }
         if (keysDown & HidNpadButton_Y) {  //find next enabled cheat
@@ -2857,8 +3057,27 @@ class SetMultiplierOverlay : public tsl::Gui {
             return true;
         }
         if (keysDown & HidNpadButton_B) {
+            if (!m_outline_mode){
+                m_outline_mode = true;
+                ShowALlCheats->setState(true);
+                m_cheat_index = m_cheat_index_save;
+                m_cheatlist_offset = m_cheatlist_offset_save;
+                return true;
+            }
             // CloseThreads();
-            if (save_code_to_file) dumpcodetofile();
+            if (save_code_to_file) {
+                savetoggles();
+                dumpcodetofile();
+                for (u8 i = 0; i < m_cheatCnt; i++) {
+                    dmntchtRemoveCheat(m_cheats[i].cheat_id);
+                };
+                loadcheatsfromfile();
+                refresh_cheats = true;
+                m_outline_refresh = true;
+                getcheats();
+                loadtoggles();
+                refresh_cheats = true;
+            }
             save_code_to_file = false;
             if (save_breeze_toggle_to_file) save_breeze_toggle();
             save_breeze_toggle_to_file = false;
@@ -2909,6 +3128,46 @@ class SetMultiplierOverlay : public tsl::Gui {
             if (((m_index >= NUM_bookmark) || ((m_index + m_addresslist_offset) >= (m_AttributeDumpBookmark->size() / sizeof(bookmark_t) ))) && m_index > 0) m_index--;
             return true;
         }
+        if ((keysDown & HidNpadButton_Minus) && !m_cursor_on_bookmark && m_outline_mode) {
+            auto outline_entry = m_cheat_outline[m_cheat_index + m_cheatlist_offset];
+            if (outline_entry.is_outline && !outline_entry.always_expanded) {
+                for (auto i = outline_entry.index; i <= outline_entry.index + outline_entry.size; i++)
+                    dmntchtRemoveCheat(m_cheats[i].cheat_id);
+            } else
+                dmntchtRemoveCheat(m_cheats[outline_entry.index].cheat_id);
+            m_outline_refresh = true;
+            refresh_cheats = true;
+            getcheats();
+            save_code_to_file = true;
+            m_cheatlist_offset = 0;
+            m_cheat_index = 0;
+            while (m_cheat_index + m_cheatlist_offset + 1 < m_cheat_outline.size()) {
+                if (m_cheat_outline[m_cheat_index + m_cheatlist_offset + 1].index > redirect_index) break;
+                if (m_cheat_index + 1 < m_NUM_cheats)
+                    m_cheat_index++;
+                else
+                    m_cheatlist_offset++;
+            }
+            return true;
+        };
+        if ((keysDown & HidNpadButton_Minus) && !m_cursor_on_bookmark && !m_outline_mode) {
+            dmntchtRemoveCheat(m_cheats[redirect_index].cheat_id);
+            m_outline_refresh = true;
+            refresh_cheats = true;
+            getcheats();
+            save_code_to_file = true;
+            m_cheatlist_offset_save = 0;
+            m_cheat_index_save = 0;
+
+            while (m_cheat_index_save + m_cheatlist_offset_save + 1 < m_cheat_outline.size()) {
+                if (m_cheat_outline[m_cheat_index_save + m_cheatlist_offset_save + 1].index > redirect_index) break;
+                if (m_cheat_index_save + 1 < m_NUM_cheats)
+                    m_cheat_index_save++;
+                else
+                    m_cheatlist_offset_save++;
+            }
+            return true;
+        };
         // need update
         if (keysDown & HidNpadButton_StickR && !(keysHeld & HidNpadButton_ZL) && !m_cursor_on_bookmark) {  // programe key combo
             if (redirect_index == 0 || m_cheats[redirect_index].definition.opcodes[0] == 0x20000000) return true;
@@ -3186,43 +3445,267 @@ class SetMultiplierOverlay : public tsl::Gui {
         return false;
     }
 };
-class SetMultiplierOverlay2 : public tsl::Gui {
+class PickCheatsOverlay : public tsl::Gui {
    public:
-    SetMultiplierOverlay2() {}
+    u8 cache_outline_index = 0, cache_outline_offset = 0;
+    u32 Selected_count = 0, cheat_slot_available = 0;
+    PickCheatsOverlay() {
+        if (!loadcachefromfile()) {
 
+        };
+
+        // insert the cheats the comes before the first label
+
+    }
     virtual tsl::elm::Element *createUI() override {
-        auto rootFrame = new tsl::elm::OverlayFrame("Breeze", APP_VERSION);
-        auto list = new tsl::elm::List();
-
-        auto Bookmark = new tsl::elm::ListItem("Show SE Bookmark");
-        Bookmark->setClickListener([](uint64_t keys) {
-            if (keys & HidNpadButton_A) {
-                // StartThreads();
-                // init_se_tools();
-                TeslaFPS = 1;
-                refreshrate = 1;
-                alphabackground = 0x0;
-                tsl::hlp::requestForeground(false);
-                FullMode = false;
-                tsl::changeTo<BookmarkOverlay>();
-                return true;
-            }
-            return false;
+        auto rootFrame = new tsl::elm::OverlayFrame("", "");
+        auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+            renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth , tsl::cfg::FramebufferHeight, a(0x7111));
+            renderer->m_maxY = 0;
+            renderer->drawString(CheatsLabelsStr, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
+            renderer->drawString(CheatsCursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
+            renderer->drawString(CheatsEnableStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
+            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), MAX_NUM_cheats);
         });
-        list->addItem(Bookmark);
-
-        rootFrame->setContent(list);
+        rootFrame->setContent(Status);
         return rootFrame;
     }
     virtual void update() override {
+        char ss[200] = "";
+        m_displayed_cheat_lines = 0;
+        CheatsLabelsStr[0] = 0;
+        CheatsCursor[0] = 0;
+        CheatsEnableStr[0] = 0;
+        snprintf(CheatsLabelsStr, sizeof CheatsLabelsStr, "\n");
+        snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "\n");
+        Selected_count = 0;
+        for (u8 i = 0; i < m_cache_outline.size(); i++)
+            if (m_cache_outline[i].selected) Selected_count++;
+        if (m_cheatCnt > 0)
+            cheat_slot_available = MaxCheatCount - m_cheats[0].cheat_id - m_cheatCnt;
+        else
+            cheat_slot_available = MaxCheatCount - 1;
+        snprintf(CheatsCursor, sizeof CheatsCursor, "Cheat index = %d, Total selected = %d/%d, i=%d o=%d n=%d\n", m_cache_outline[cache_outline_index + cache_outline_offset].index, Selected_count, cheat_slot_available, cache_outline_index, cache_outline_offset, m_NUM_cheats);
+        for (u8 line = 0; line < NUM_cheats; line++) {
+            if ((line + cache_outline_offset) >= m_cache_outline.size())
+                break;
+            {
+                DmntCheatEntry cheat_entry = m_cache[m_cache_outline[line + cache_outline_offset].index];
+                auto entry = m_cache_outline[line + cache_outline_offset];
+                if (cheat_entry.definition.opcodes[0] == 0x20000000) {
+                    snprintf(ss, sizeof ss, "[%s] %d\n", cheat_entry.definition.readable_name, m_cache_outline[line + cache_outline_offset].size);
+                    strcat(CheatsLabelsStr, ss);
+                    // strcat(CheatsEnableStr, ss);
+                } else if (cheat_entry.definition.opcodes[0] == 0x20000001) {
+                    snprintf(ss, sizeof ss, "- outline off - [%s]\n", cheat_entry.definition.readable_name);
+                    strcat(CheatsLabelsStr, ss);
+                    // strcat(CheatsEnableStr, ss);
+                } else {
+                    snprintf(ss, sizeof ss, "%s\n", cheat_entry.definition.readable_name);
+                    strcat(CheatsLabelsStr, ss);
+
+                }
+                snprintf(ss, sizeof ss, "%s\n", (entry.selected) ? "\u25A0" : "\u25A1");
+                strcat(CheatsEnableStr, ss);
+                snprintf(ss, sizeof ss, "%s\n", ((cache_outline_index == line) ? "\uE019" : ""));
+                strcat(CheatsCursor, ss);
+                m_displayed_cheat_lines++;
+            }
+        }
     }
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-        if (keysHeld & HidNpadButton_B) {
+        if (keysDown & HidNpadButton_B) {
+            refresh_cheats = true;
+            m_outline_refresh = true;
+            getcheats();
+            savetoggles();
+            dumpcodetofile();
+            for (u8 i = 0; i < m_cheatCnt; i++) {
+                dmntchtRemoveCheat(m_cheats[i].cheat_id);
+            };
+            loadcheatsfromfile();
+            loadtoggles();
+            m_outline_refresh = true;
+            refresh_cheats = true;
+            m_outline_mode = true;
+            m_cheat_index = 0;
+            m_cheatlist_offset = 0;
             tsl::goBack();
             return true;
         }
-        if (keysHeld & HidNpadButton_X) {
-            tsl::Overlay::get()->hide();
+        if (keysDown & HidNpadButton_Minus) {
+            // Clear existing cheats is desired
+            refresh_cheats = true;
+            getcheats();
+            savetoggles();
+            for (u8 i = 0; i < m_cheatCnt; i++) {
+                dmntchtRemoveCheat(m_cheats[i].cheat_id);
+            };
+            m_outline_refresh = true;
+            refresh_cheats = true;
+            getcheats();
+            return true;
+        }
+        if (keysDown & HidNpadButton_X) {
+            // proceed to add selected cheats
+            u32 idout;
+            for (auto entry : m_cache_outline) {
+                if (entry.selected) {
+                    dmntchtAddCheat(&(m_cache[entry.index].definition), false, &idout);
+                }
+            }
+            refresh_cheats = true;
+            m_outline_refresh = true;
+            getcheats();
+            loadtoggles();
+            refresh_cheats = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_A) { //*** toggle cheats / expand outline
+            u32 index = cache_outline_index + cache_outline_offset;
+            {
+                auto entry = m_cache_outline[index];
+                if (entry.is_outline && !entry.always_expanded) {
+                    if (entry.selected) {
+                        entry.selected = false;
+                        m_cache_outline[index] = entry;
+                        return true;
+                    }
+                    if (!entry.expanded) {
+                        for (u32 i = 1; i <= entry.size; i++) {
+                            cache_outline_t new_entry = {};
+                            new_entry.index = entry.index + i;
+                            if (entry.size + Selected_count < cheat_slot_available)
+                                new_entry.selected = true;
+                            m_cache_outline.insert(m_cache_outline.begin() + index + i, new_entry);
+                        }
+                        entry.expanded = true;
+                        if (Selected_count < cheat_slot_available)
+                            entry.selected = true;
+                    } else {
+                        m_cache_outline.erase(m_cache_outline.begin() + index + 1, m_cache_outline.begin() + index + 1 + entry.size);
+                        entry.expanded = false;
+                        entry.selected = false;
+                    };
+                    // entry.selected = true;
+                    m_cache_outline[index] = entry;
+                    // refresh_cheats = true;
+                    return true;
+                }
+                // index = entry.index;
+            }
+            if (m_cache_outline[index].selected)
+                m_cache_outline[index].selected = false;
+            else {
+                if (Selected_count < cheat_slot_available)
+                    m_cache_outline[index].selected = true;
+            }
+            // refresh_cheats = true;
+            return true;
+        }
+        if (keysDown & HidNpadButton_R && keysHeld & HidNpadButton_ZL) {
+            fontsize++;
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && keysHeld & HidNpadButton_ZL) {
+            fontsize--;
+            return true;
+        }
+        if ((keysDown & HidNpadButton_AnyUp) || (keysHeld & HidNpadButton_StickRUp)) {
+            {
+                cache_outline_index = std::min(cache_outline_index, m_NUM_cheats);
+                if (cache_outline_index > 0)
+                    cache_outline_index--;
+                else {
+                    if (cache_outline_offset > 0)
+                        cache_outline_offset--;
+                }
+            }
+            return true;
+        };
+        if ((keysDown & HidNpadButton_AnyDown) || (keysHeld & HidNpadButton_StickRDown)) {
+            {
+                cache_outline_index = std::min(cache_outline_index, (u8)(m_NUM_cheats - (u8)1));
+                if ((cache_outline_index < NUM_cheats - 1) && ((cache_outline_index + cache_outline_offset) < m_cache_outline.size() - 1))
+                    cache_outline_index++;
+                else if ((cache_outline_index + cache_outline_offset) < m_cache_outline.size() - 1)
+                    cache_outline_offset++;
+            }
+            return true;
+        };
+
+        if (keysDown & HidNpadButton_R && (keysHeld & HidNpadButton_ZR)) {  // Next label
+             {
+                size_t i = cache_outline_index + cache_outline_offset;
+                while (i < m_cache_outline.size()) {
+                    i++;
+                    if (m_cache_outline[i].is_outline) {
+                        cache_outline_offset = i - cache_outline_index;
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && (keysHeld & HidNpadButton_ZR)) {  // Previous label
+             {
+                auto i = cache_outline_index + cache_outline_offset;
+                while (i > 0) {
+                    i--;
+                    if (m_cache_outline[i].is_outline) {
+                        if (i >= cache_outline_index)
+                            cache_outline_offset = i - cache_outline_index;
+                        else {
+                            cache_outline_offset = 0;
+                            cache_outline_index = i;
+                        }
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+        if (keysDown & HidNpadButton_R && !(keysHeld & HidNpadButton_ZR)) {  //page down
+             {
+                if ((cache_outline_offset + NUM_cheats) < m_cache_outline.size() - 1) cache_outline_offset += NUM_cheats;
+                if ((cache_outline_index + cache_outline_offset) > m_cache_outline.size() - 1) cache_outline_index = m_cache_outline.size() - 1 - cache_outline_offset;
+                return true;
+            }
+            if (!m_cursor_on_bookmark && (m_cache_outline.size() <= 1 || ShowALlCheats->getState())) {
+                if ((cache_outline_offset + NUM_cheats) < m_cheatCnt - 1) cache_outline_offset += NUM_cheats;
+                if ((cache_outline_index + cache_outline_offset) > m_cheatCnt - 1) cache_outline_index = m_cheatCnt - 1 - cache_outline_offset;
+                //update cache_outline_index
+                size_t i = 0;
+                while (i < m_cache_outline.size() && (cache_outline_index + cache_outline_offset) > m_cache_outline[i].index) {
+                    cache_outline_index = i;
+                    i++;
+                }
+
+            } else if (!m_cursor_on_bookmark && m_cache_outline.size() > 1) {  // show within outline only case
+                if (cache_outline_index < m_cache_outline.size() - 1) cache_outline_index++;
+                cache_outline_offset = m_cache_outline[cache_outline_index].index;
+                cache_outline_index = 0;
+            };
+            return true;
+        }
+        if (keysDown & HidNpadButton_L && !(keysHeld & HidNpadButton_ZR)) {  //page up
+            if (!m_cursor_on_bookmark && (m_cache_outline.size() <= 1 || ShowALlCheats->getState())) {
+                if (cache_outline_offset > NUM_cheats)
+                    cache_outline_offset -= NUM_cheats;
+                else
+                    cache_outline_offset = 0;
+                //update cache_outline_index
+                size_t i = 0;
+                while (i < m_cache_outline.size() && (cache_outline_index + cache_outline_offset) > m_cache_outline[i].index) {
+                    cache_outline_index = i;
+                    i++;
+                }
+
+            } else if (!m_cursor_on_bookmark && m_cache_outline.size() > 1) {  // show within outline only case
+                if (cache_outline_index > 0) cache_outline_index--;
+                cache_outline_offset = m_cache_outline[cache_outline_index].index;
+                cache_outline_index = 0;
+            };
             return true;
         }
         return false;
@@ -3271,6 +3754,23 @@ class MainMenu : public tsl::Gui { // WIP
         });
         list->addItem(SetMultiplier);
 
+        auto PickCheats = new tsl::elm::ListItem("Pick Cheats from large list");
+        PickCheats->setClickListener([](uint64_t keys) {
+            if (keys & HidNpadButton_A) {
+                // StartThreads();
+                // if (!init_se_tools()) return true;
+                TeslaFPS = 50;
+                refreshrate = 1;
+                alphabackground = 0x0;
+                tsl::hlp::requestForeground(true);
+                FullMode = false;
+                tsl::changeTo<PickCheatsOverlay>();
+                return true;
+            }
+            return false;
+        });
+        list->addItem(PickCheats);
+
         auto LoadCheats = new tsl::elm::ListItem("reload Cheats");
         LoadCheats->setClickListener([](uint64_t keys) {
             if (keys & HidNpadButton_A) {
@@ -3283,6 +3783,7 @@ class MainMenu : public tsl::Gui { // WIP
                 };
                 loadcheatsfromfile();
                 refresh_cheats = true;
+                m_outline_refresh = true;
                 getcheats();
                 loadtoggles();
                 refresh_cheats = true;
@@ -3400,21 +3901,21 @@ class MainMenu : public tsl::Gui { // WIP
         }
         if (first_launch && m_debugger->m_dmnt) {
             // reload the cheats
+            // refresh_cheats = true;
+            // getcheats();
+            // savetoggles();
+            // for (u8 i = 0; i < m_cheatCnt; i++) {
+            //     dmntchtRemoveCheat(m_cheats[i].cheat_id);
+            // };
+            // loadcheatsfromfile();
             refresh_cheats = true;
             getcheats();
-            savetoggles();
-            for (u8 i = 0; i < m_cheatCnt; i++) {
-                dmntchtRemoveCheat(m_cheats[i].cheat_id);
-            };
-            loadcheatsfromfile();
-            refresh_cheats = true;
-            getcheats();
-            loadtoggles();
-            refresh_cheats = true;
-            if (m_outline.size() > 1) {  // && m_AttributeDumpBookmark->size() == 0) {
-                // m_show_outline = true;
-                // m_cursor_on_bookmark = false;
-            }
+            // loadtoggles();
+            // refresh_cheats = true;
+            // if (m_outline.size() > 1) {  // && m_AttributeDumpBookmark->size() == 0) {
+            //     // m_show_outline = true;
+            //     // m_cursor_on_bookmark = false;
+            // }
             // end reload cheats
 
             first_launch = false;
