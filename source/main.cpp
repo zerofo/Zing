@@ -1190,6 +1190,11 @@ bool loadcheatsfromfile() {
     
     FILE *pfile;
     pfile = fopen(m_cheatcode_path, "rb");
+    if (pfile == NULL) {
+        char zing_path[128];
+        snprintf(zing_path, 128, "sdmc:/switch/zing/%02X%02X%02X%02X%02X%02X%02X%02X.txt", build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        pfile = fopen(zing_path, "rb");
+    }
     if (pfile != NULL) {
         fseek(pfile, 0, SEEK_END);
         size_t len = ftell(pfile);
