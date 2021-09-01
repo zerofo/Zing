@@ -1065,9 +1065,9 @@ bool loadcachefromfile() {
                 /* s[i+1:j] is cheat name. */
                 const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
                 std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
-                // for (u32 i = 0; i < cheat_name_len; i++) {
-                //     if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
-                // };
+                for (u32 i = 0; i < cheat_name_len; i++) {
+                    if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
+                };
                 cheatentry.definition.readable_name[cheat_name_len] = 0;
                 label_len = cheat_name_len;
 
@@ -1237,9 +1237,9 @@ bool loadcheatsfromfile() {
                 /* s[i+1:j] is cheat name. */
                 const size_t cheat_name_len = std::min(j - i - 1, sizeof(cheatentry.definition.readable_name));
                 std::memcpy(cheatentry.definition.readable_name, &s[i + 1], cheat_name_len);
-                // for (u32 i = 0; i < cheat_name_len; i++) {
-                //     if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
-                // };
+                for (u32 i = 0; i < cheat_name_len; i++) {
+                    if (cheatentry.definition.readable_name[i] == 13 || cheatentry.definition.readable_name[i] == 10) cheatentry.definition.readable_name[i] = 32;
+                };
                 cheatentry.definition.readable_name[cheat_name_len] = 0;
                 label_len = cheat_name_len;
 
