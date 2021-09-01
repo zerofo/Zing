@@ -1003,11 +1003,13 @@ bool loadcachefromfile() {
     // 
     snprintf(m_cheatcode_path, 128, "sdmc:/switch/zing/%02X%02X%02X%02X%02X%02X%02X%02X.txt", build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
     // if (access(m_cheatcode_path, F_OK) != 0)
-    FILE *pfile;
+    FILE *pfile, *pfile2 = NULL;
     pfile = fopen(m_cheatcode_path, "rb");
     if (pfile == NULL) {
-        snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
-        pfile = fopen(m_cheatcode_path, "rb");
+        char atm_path[128];
+        snprintf(atm_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        pfile = fopen(atm_path, "rb");
+        pfile2 = fopen(m_cheatcode_path, "wb");
     }
     if (pfile != NULL) {
         fseek(pfile, 0, SEEK_END);
@@ -1015,6 +1017,10 @@ bool loadcachefromfile() {
         u8 *s = new u8[len];
         fseek(pfile, 0, SEEK_SET);
         fread(s, 1, len, pfile);
+        if (pfile2 != NULL) {
+            fwrite(s, 1, len, pfile2);
+            fclose(pfile2);
+        }
         DmntCheatEntry cheatentry;
         cheatentry.definition.num_opcodes = 0;
         cheatentry.enabled = false;
