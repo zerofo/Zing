@@ -1000,10 +1000,15 @@ bool loadcachefromfile() {
     m_cache_outline.clear();
     m_cache.clear();
     u32 _index = 0;
-    // snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+    // 
     snprintf(m_cheatcode_path, 128, "sdmc:/switch/zing/%02X%02X%02X%02X%02X%02X%02X%02X.txt", build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+    // if (access(m_cheatcode_path, F_OK) != 0)
     FILE *pfile;
     pfile = fopen(m_cheatcode_path, "rb");
+    if (pfile == NULL) {
+        snprintf(m_cheatcode_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
+        pfile = fopen(m_cheatcode_path, "rb");
+    }
     if (pfile != NULL) {
         fseek(pfile, 0, SEEK_END);
         size_t len = ftell(pfile);
@@ -3451,7 +3456,11 @@ class PickCheatsOverlay : public tsl::Gui {
     u32 Selected_count = 0, cheat_slot_available = 0;
     PickCheatsOverlay() {
         if (loadcachefromfile()) {
-            auto index = m_cache_outline[0].index;
+            u32 index;
+            if (m_cache_outline.size() > 0)
+                index = m_cache_outline[0].index;
+            else 
+                index = m_cache.size();
             for (u32 i = 0; i < index; i++) {
                 cache_outline_t new_entry = {};
                 new_entry.index = i;
