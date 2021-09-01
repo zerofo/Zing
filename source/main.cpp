@@ -3475,7 +3475,9 @@ class PickCheatsOverlay : public tsl::Gui {
    public:
     u32 cache_outline_index = 0, cache_outline_offset = 0;
     u32 Selected_count = 0, cheat_slot_available = 0;
+    bool cheats_added = false;
     PickCheatsOverlay() {
+        cheats_added = false;
         if (loadcachefromfile()) {
             u32 index;
             if (m_cache_outline.size() > 0)
@@ -3550,16 +3552,18 @@ class PickCheatsOverlay : public tsl::Gui {
     }
     virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
         if (keysDown & HidNpadButton_B) {
-            refresh_cheats = true;
-            m_outline_refresh = true;
-            getcheats();
-            savetoggles();
-            dumpcodetofile();
-            for (u8 i = 0; i < m_cheatCnt; i++) {
-                dmntchtRemoveCheat(m_cheats[i].cheat_id);
+            if (cheats_added) {
+                refresh_cheats = true;
+                m_outline_refresh = true;
+                getcheats();
+                savetoggles();
+                dumpcodetofile();
+                for (u8 i = 0; i < m_cheatCnt; i++) {
+                    dmntchtRemoveCheat(m_cheats[i].cheat_id);
+                };
+                loadcheatsfromfile();
+                loadtoggles();
             };
-            loadcheatsfromfile();
-            loadtoggles();
             m_outline_refresh = true;
             refresh_cheats = true;
             m_outline_mode = true;
@@ -3586,6 +3590,7 @@ class PickCheatsOverlay : public tsl::Gui {
             u32 idout;
             for (auto entry : m_cache_outline) {
                 if (entry.selected) {
+                    cheats_added = true;
                     if (m_cache[entry.index].enabled)
                         dmntchtSetMasterCheat(&(m_cache[entry.index].definition));
                     else
