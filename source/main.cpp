@@ -1000,6 +1000,7 @@ bool loadcachefromfile() {
     m_cache_outline.clear();
     m_cache.clear();
     u32 _index = 0;
+    bool copy_cheat_file = false;
     // 
     snprintf(m_cheatcode_path, 128, "sdmc:/switch/zing/%02X%02X%02X%02X%02X%02X%02X%02X.txt", build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
     // if (access(m_cheatcode_path, F_OK) != 0)
@@ -1009,7 +1010,7 @@ bool loadcachefromfile() {
         char atm_path[128];
         snprintf(atm_path, 128, "sdmc:/atmosphere/contents/%016lX/cheats/%02X%02X%02X%02X%02X%02X%02X%02X.txt", metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
         pfile = fopen(atm_path, "rb");
-        pfile2 = fopen(m_cheatcode_path, "wb");
+        copy_cheat_file = true;
     }
     if (pfile != NULL) {
         fseek(pfile, 0, SEEK_END);
@@ -1017,9 +1018,13 @@ bool loadcachefromfile() {
         u8 *s = new u8[len];
         fseek(pfile, 0, SEEK_SET);
         fread(s, 1, len, pfile);
-        if (pfile2 != NULL) {
-            fwrite(s, 1, len, pfile2);
-            fclose(pfile2);
+        fclose(pfile); 
+        if (copy_cheat_file) {
+            pfile2 = fopen(m_cheatcode_path, "wb");
+            if (pfile2 != NULL) {
+                fwrite(s, 1, len, pfile2);
+                fclose(pfile2);
+            }
         }
         DmntCheatEntry cheatentry;
         cheatentry.definition.num_opcodes = 0;
@@ -1168,7 +1173,6 @@ bool loadcachefromfile() {
             entry.size = _index - entry.index - 1;
             m_cache_outline.push_back(entry);
         }
-        fclose(pfile);  // take note that if any error occured above this isn't closed
         return true;
     }
     {
@@ -1201,6 +1205,7 @@ bool loadcheatsfromfile() {
         u8 *s = new u8[len];
         fseek(pfile, 0, SEEK_SET);
         fread(s, 1, len, pfile);
+        fclose(pfile);
         DmntCheatEntry cheatentry;
         cheatentry.definition.num_opcodes = 0;
         cheatentry.enabled = false;
@@ -1335,7 +1340,6 @@ bool loadcheatsfromfile() {
         if (cheatentry.definition.num_opcodes != 0) {
             dmntchtAddCheat(&(cheatentry.definition), cheatentry.enabled, &(cheatentry.cheat_id));
         }
-        fclose(pfile);  // take note that if any error occured above this isn't closed
         return true;
     }
     return false;
@@ -1915,6 +1919,10 @@ void getcheats(){ // WIP
     if (refresh_cheats) {
         if (m_cheatCnt != 0) delete m_cheats;
         dmntchtGetCheatCount(&m_cheatCnt);
+        if (m_cheatCnt == 0) {
+            loadcheatsfromfile();
+            dmntchtGetCheatCount(&m_cheatCnt);
+        }
         if (m_cheatCnt > 0) {
             m_cheats = new DmntCheatEntry[m_cheatCnt];
             dmntchtGetCheats(m_cheats, m_cheatCnt, 0, &m_cheatCnt);
@@ -1923,6 +1931,8 @@ void getcheats(){ // WIP
             CheatsCursor[0] = 0;
             CheatsEnableStr[0] = 0;
             snprintf(CheatsEnableStr, sizeof CheatsEnableStr, "No Cheats available\n");
+            cheat_outline_entry_t outline_entry = {};
+            m_cheat_outline.push_back(outline_entry);
             return;
         }
         refresh_cheats = false;
