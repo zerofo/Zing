@@ -1625,6 +1625,16 @@ bool addbookmark() {
     DmntCheatDefinition cheat = m_cheats[index].definition;
     bookmark_t bookmark;
     memcpy(&bookmark.label, &cheat.readable_name, sizeof(bookmark.label));
+    if ((bookmark.label[18] & 0xC0) == 0xC0) {
+        bookmark.label[18] = 0;
+    } else if ((bookmark.label[17] & 0xE0) == 0xE0) {
+        bookmark.label[17] = 0;
+        bookmark.label[18] = 0;
+    } else if ((bookmark.label[16] & 0xF0) == 0xF0) {
+        bookmark.label[16] = 0;
+        bookmark.label[17] = 0;
+        bookmark.label[18] = 0;
+    }
     bookmark.pointer.depth = 0;
     bookmark.deleted = false;
     bool success = false;
