@@ -3822,7 +3822,7 @@ class MainMenu : public tsl::Gui { // WIP
 
             ShowKeyHints = new tsl::elm::ToggleListItem("Show key hints", false);
 
-            list->addItem(ShowALlCheats);
+            // list->addItem(ShowALlCheats);
 
             list->addItem(ShowKeyHints);
 
