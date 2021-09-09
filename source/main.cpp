@@ -3745,86 +3745,86 @@ class MainMenu : public tsl::Gui { // WIP
         auto rootFrame = new tsl::elm::OverlayFrame("Zing", APP_VERSION);
         auto list = new tsl::elm::List();
         if (m_debugger->m_dmnt) {
-        auto Bookmark = new tsl::elm::ListItem("Activate Monitor");
-        Bookmark->setClickListener([](uint64_t keys) {
-            if (keys & HidNpadButton_A) {
-                // StartThreads();
-                // if (!init_se_tools()) return true;
-                TeslaFPS = 20;
-                refreshrate = 1;
-                alphabackground = 0x0;
-                tsl::hlp::requestForeground(false);
-                FullMode = false;
-                tsl::changeTo<BookmarkOverlay>();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(Bookmark);
+            auto Bookmark = new tsl::elm::ListItem("Activate Monitor");
+            Bookmark->setClickListener([](uint64_t keys) {
+                if (keys & HidNpadButton_A) {
+                    // StartThreads();
+                    // if (!init_se_tools()) return true;
+                    TeslaFPS = 20;
+                    refreshrate = 1;
+                    alphabackground = 0x0;
+                    tsl::hlp::requestForeground(false);
+                    FullMode = false;
+                    tsl::changeTo<BookmarkOverlay>();
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(Bookmark);
 
-        auto SetMultiplier = new tsl::elm::ListItem("Settings");
-        SetMultiplier->setClickListener([](uint64_t keys) {
-            if (keys & HidNpadButton_A) {
-                // StartThreads();
-                // if (!init_se_tools()) return true;
-                TeslaFPS = 50;
-                refreshrate = 1;
-                alphabackground = 0x0;
-                tsl::hlp::requestForeground(true);
-                FullMode = false;
-                tsl::changeTo<SetMultiplierOverlay>();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(SetMultiplier);
+            auto SetMultiplier = new tsl::elm::ListItem("Settings");
+            SetMultiplier->setClickListener([](uint64_t keys) {
+                if (keys & HidNpadButton_A) {
+                    // StartThreads();
+                    // if (!init_se_tools()) return true;
+                    TeslaFPS = 50;
+                    refreshrate = 1;
+                    alphabackground = 0x0;
+                    tsl::hlp::requestForeground(true);
+                    FullMode = false;
+                    tsl::changeTo<SetMultiplierOverlay>();
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(SetMultiplier);
 
-        auto PickCheats = new tsl::elm::ListItem("Pick Cheats from large list");
-        PickCheats->setClickListener([](uint64_t keys) {
-            if (keys & HidNpadButton_A) {
-                // StartThreads();
-                // if (!init_se_tools()) return true;
-                TeslaFPS = 50;
-                refreshrate = 1;
-                alphabackground = 0x0;
-                tsl::hlp::requestForeground(true);
-                FullMode = false;
-                tsl::changeTo<PickCheatsOverlay>();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(PickCheats);
+            auto PickCheats = new tsl::elm::ListItem("Pick Cheats from large list");
+            PickCheats->setClickListener([](uint64_t keys) {
+                if (keys & HidNpadButton_A) {
+                    // StartThreads();
+                    // if (!init_se_tools()) return true;
+                    TeslaFPS = 50;
+                    refreshrate = 1;
+                    alphabackground = 0x0;
+                    tsl::hlp::requestForeground(true);
+                    FullMode = false;
+                    tsl::changeTo<PickCheatsOverlay>();
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(PickCheats);
 
-        auto LoadCheats = new tsl::elm::ListItem("reload Cheats");
-        LoadCheats->setClickListener([](uint64_t keys) {
-            if (keys & HidNpadButton_A) {
-                // init_se_tools();
-                refresh_cheats = true;
-                getcheats();
-                savetoggles();
-                for (u8 i = 0; i < m_cheatCnt; i++) {
-                    dmntchtRemoveCheat(m_cheats[i].cheat_id);
-                };
-                loadcheatsfromfile();
-                refresh_cheats = true;
-                m_outline_refresh = true;
-                getcheats();
-                loadtoggles();
-                refresh_cheats = true;
-                // cleanup_se_tools();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(LoadCheats);
-        ShowALlCheats = new tsl::elm::ToggleListItem("Show All cheats", true);
-        
-        ShowKeyHints = new tsl::elm::ToggleListItem("Show key hints", false);
+            auto LoadCheats = new tsl::elm::ListItem("reload Cheats");
+            LoadCheats->setClickListener([](uint64_t keys) {
+                if (keys & HidNpadButton_A) {
+                    // init_se_tools();
+                    refresh_cheats = true;
+                    getcheats();
+                    savetoggles();
+                    for (u8 i = 0; i < m_cheatCnt; i++) {
+                        dmntchtRemoveCheat(m_cheats[i].cheat_id);
+                    };
+                    loadcheatsfromfile();
+                    refresh_cheats = true;
+                    m_outline_refresh = true;
+                    getcheats();
+                    loadtoggles();
+                    refresh_cheats = true;
+                    // cleanup_se_tools();
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(LoadCheats);
+            ShowALlCheats = new tsl::elm::ToggleListItem("Show All cheats", true);
 
-        list->addItem(ShowALlCheats);
+            ShowKeyHints = new tsl::elm::ToggleListItem("Show key hints", false);
 
-        list->addItem(ShowKeyHints);
+            list->addItem(ShowALlCheats);
+
+            list->addItem(ShowKeyHints);
 
         } else {
             auto NoCheats = new tsl::elm::ListItem("Dmnt not attached");
@@ -3950,7 +3950,6 @@ class MainMenu : public tsl::Gui { // WIP
             tsl::hlp::requestForeground(true);
             FullMode = false;
             tsl::changeTo<SetMultiplierOverlay>();
-
         }
         // if (Bstate.A == 123) {
         //     tsl::hlp::requestForeground(true);
@@ -4049,10 +4048,12 @@ class MonitorOverlay : public tsl::Overlay {
     virtual void onShow() override {
         m_on_show = true;
         refresh_cheats = true;
-        CloseThreads();
+        if (m_debugger->m_dmnt)
+            CloseThreads();
     }  // Called before overlay wants to change from invisible to visible state
     virtual void onHide() override {
-        StartThreads();
+        if (m_debugger->m_dmnt)
+            StartThreads();
     }  // Called before overlay wants to change from visible to invisible state
 
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
