@@ -2659,7 +2659,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         // strcat(BookmarkLabels,bookmarkfilename);
         if (ShowKeyHints->getState()) {
             if (m_cursor_on_bookmark){
-                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090 nav, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete, \uE0A6\uE0B3 remove Key hint\n\uE04E toggle show all cheats, \uE0A3 find next enabled cheat\n",
+                snprintf(Cursor, sizeof Cursor, "%s %s, PID %03ld, \uE0A6+\uE0A1 Goto Monitor\nTID %016lX, BID %02X%02X%02X%02X%02X%02X%02X%02X\n\uE092\uE093\uE091\uE090 nav, \uE0A4 \uE0A5 change, \uE0A0 edit, \uE0A1 exit, \uE0A6+\uE0A4/\uE0A5 Font size\n\uE0B4 delete, \uE0A6\uE0B3 remove Key hint\n\uE0A6+\uE04E toggle show all cheats, \uE0A3 find next enabled cheat\n",
                          m_titleName.c_str(), m_versionString.c_str(), metadata.process_id, metadata.title_id, build_id[0], build_id[1], build_id[2], build_id[3], build_id[4], build_id[5], build_id[6], build_id[7]);
                 snprintf(BookmarkLabels, sizeof BookmarkLabels, "\n\n\n\n\n");
                 snprintf(Variables, sizeof Variables, "\n\n\n\n\n");
