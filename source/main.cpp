@@ -4,9 +4,10 @@
 #include "debugger.hpp"
 #include "dmntcht.h"
 #include "memory_dump.hpp"
-#ifdef CUSTOM
+// #ifdef CUSTOM
 #include "Battery.hpp"
-#endif
+#include "audsnoop.h"
+#include "Misc.hpp"
 
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
 #define FieldDescriptor uint32_t
@@ -32,6 +33,9 @@ bool Atmosphere_present = false;
 uint64_t refreshrate = 1;
 FanController g_ICon;
 
+//Misc2
+NvChannel nvdecChannel;
+
 //Mini mode
 char Variables[672];
 
@@ -45,18 +49,36 @@ Result tcCheck = 1;
 Result Hinted = 1;
 Result pmdmntCheck = 1;
 Result dmntchtCheck = 1;
-#ifdef CUSTOM
 Result psmCheck = 1;
+Result audsnoopCheck = 1;
+Result nvdecCheck = 1;
+Result nifmCheck = 1;
+
+//Wi-Fi
+NifmInternetConnectionType NifmConnectionType = (NifmInternetConnectionType)-1;
+NifmInternetConnectionStatus NifmConnectionStatus = (NifmInternetConnectionStatus)-1;
+bool Nifm_showpass = false;
+Result Nifm_internet_rc = -1;
+Result Nifm_profile_rc = -1;
+NifmNetworkProfileData_new* Nifm_profile = 0;
+char Nifm_pass[96];
+
+//NVDEC
+uint32_t NVDEC_Hz = 0;
+char NVDEC_Hz_c[32];
+
+//DSP
+uint32_t DSP_Load_u = -1;
+char DSP_Load_c[16];
 
 //Battery
 Service *psmService = 0;
 BatteryChargeInfoFields *_batteryChargeInfoFields = 0;
 char Battery_c[320];
-#endif
 
 //Temperatures
-int32_t SoC_temperaturemiliC = 0;
-int32_t PCB_temperaturemiliC = 0;
+int32_t SOC_temperatureC = 0;
+int32_t PCB_temperatureC = 0;
 int32_t skin_temperaturemiliC = 0;
 char SoCPCB_temperature_c[64];
 char skin_temperature_c[32];
@@ -299,6 +321,25 @@ void Misc(void *) {
         // Interval
         svcSleepThread(1'000'000'000 / refreshrate);
     }
+}
+
+void Misc2(void*) {
+	while (threadexit == false) {
+		//DSP
+		if (R_SUCCEEDED(audsnoopCheck)) audsnoopGetDspUsage(&DSP_Load_u);
+
+		//NVDEC clock rate
+		if (R_SUCCEEDED(nvdecCheck)) getNvChannelClockRate(&nvdecChannel, 0x75, &NVDEC_Hz);
+
+		if (R_SUCCEEDED(nifmCheck)) {
+			u32 dummy = 0;
+			Nifm_internet_rc = nifmGetInternetConnectionStatus(&NifmConnectionType, &dummy, &NifmConnectionStatus);
+			if (!Nifm_internet_rc && (NifmConnectionType == NifmInternetConnectionType_WiFi))
+				Nifm_profile_rc = nifmGetCurrentNetworkProfile((NifmNetworkProfileData*)Nifm_profile);
+		}
+		// Interval
+		svcSleepThread(100'000'000);
+	}
 }
 
 //Check each core for idled ticks in intervals, they cannot read info about other core than they are assigned
