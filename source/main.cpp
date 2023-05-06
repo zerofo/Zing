@@ -283,8 +283,8 @@ void Misc(void *) {
 
         //Temperatures
         if (R_SUCCEEDED(tsCheck)) {
-            tsGetTemperatureMilliC(TsLocation_External, &SoC_temperaturemiliC);
-            tsGetTemperatureMilliC(TsLocation_Internal, &PCB_temperaturemiliC);
+            tsGetTemperatureMilliC(TsLocation_External, &SOC_temperatureC);
+            tsGetTemperatureMilliC(TsLocation_Internal, &PCB_temperatureC);
         }
         if (R_SUCCEEDED(tcCheck)) tcGetSkinTemperatureMilliC(&skin_temperaturemiliC);
 
@@ -482,7 +482,7 @@ class com_FPS : public tsl::Gui {
         ///FPS
         snprintf(FPSavg_c, sizeof FPSavg_c, "%2.1f", FPSavg);
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             EndFPSCounterThread();
             tsl::goBack();
@@ -609,7 +609,7 @@ class FullOverlay : public tsl::Gui {
         snprintf(FPS_compressed_c, sizeof FPS_compressed_c, "%s\n%s", FPS_c, FPSavg_c);
         snprintf(FPS_var_compressed_c, sizeof FPS_var_compressed_c, "%u\n%2.2f", FPS, FPSavg);
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld,  const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             CloseThreads();
             tsl::goBack();
