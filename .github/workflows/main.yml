@@ -12,17 +12,19 @@ jobs:
 
     steps:
     - name: Checkout project
-      uses: actions/checkout@v3
+      uses: actions/checkout@master
       with:
         submodules: recursive
 
     - name: Build project
       run: |
+            git config --global --add safe.directory `pwd` 
+            git submodule update --remote 
             make
             ls
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         path: ./*.ovl
         
@@ -34,3 +36,4 @@ jobs:
         tag: ${{ github.ref }}
         overwrite: true
         file_glob: true
+        make_lasest: true
