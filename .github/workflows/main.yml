@@ -19,7 +19,7 @@ jobs:
     - name: Build project
       run: |
             git config --global --add safe.directory `pwd` 
-            git submodule update --remote 
+            git submodule update --remote lib/Atmosphere-libs
             make
             ls
 
