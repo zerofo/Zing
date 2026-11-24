@@ -2231,22 +2231,33 @@ class BookmarkOverlay : public tsl::Gui {
             // if (GameRunning == false)
             // fontsize = 20;
             std::pair<u32, u32> extent1;
-            renderer->m_maxY = 0;
+            u32 m_maxX = 0, m_maxY = 0;
             // else
             extent1 = renderer->drawString(Title_str.c_str(), false, 5, fontsize +5 , fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)(fontsize + 5) + extent1.second);
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
-            renderer->m_maxX = 0;
 
-            renderer->drawString(BookmarkLabels, false, 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+            auto e = renderer->drawString(BookmarkLabels, false, 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+            m_maxX = std::max(m_maxX, (u32)5 + e.first);
+            m_maxY = std::max(m_maxY, (u32)(extent1.second + fontsize + 5) + e.second);
 
-            renderer->drawString(Variables, false, renderer->m_maxX + 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+            s32 var_x = (s32)m_maxX + 5;
+            auto e2 = renderer->drawString(Variables, false, var_x, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+            m_maxX = std::max(m_maxX, (u32)var_x + e2.first);
+            m_maxY = std::max(m_maxY, (u32)(extent1.second + fontsize + 5) + e2.second);
 
-            renderer->drawString(MultiplierStr, false, renderer->m_maxX + 5, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+            s32 mul_x = (s32)m_maxX + 5;
+            auto e3 = renderer->drawString(MultiplierStr, false, mul_x, extent1.second + fontsize + 5, fontsize, renderer->a(0xFFFF));
+            m_maxX = std::max(m_maxX, (u32)mul_x + e3.first);
+            m_maxY = std::max(m_maxY, (u32)(extent1.second + fontsize + 5) + e3.second);
 
         // strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
-            renderer->drawString(CheatsLabelsStr, false, 5, renderer->m_maxY, fontsize, renderer->a(0xFFFF));
+            s32 cheat_y = (s32)m_maxY;
+            auto e4 = renderer->drawString(CheatsLabelsStr, false, 5, cheat_y, fontsize, renderer->a(0xFFFF));
+            m_maxX = std::max(m_maxX, (u32)5 + e4.first);
+            m_maxY = std::max(m_maxY, (u32)cheat_y + e4.second);
             // renderer->drawRect(0, 0, std::max(5 + extent2.first, 190 + extent1.first) + 5, (fontsize + 3) * (2 + m_displayed_bookmark_lines + m_displayed_cheat_lines) + 5, a(0x7111));
-            renderer->drawRect(0, 0, std::max(renderer->m_maxX, extent1.first + 5) + 5, renderer->m_maxY + 5 - fontsize, a(0x7111));
+            renderer->drawRect(0, 0, std::max(m_maxX, extent1.first + 5) + 5, m_maxY + 5 - fontsize, a(0x7111));
         });
 
         rootFrame->setContent(Status);
@@ -2674,18 +2685,22 @@ class SetMultiplierOverlay : public tsl::Gui {
             renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth , tsl::cfg::FramebufferHeight, a(0x7111));
             // else
             //     renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth - 150, 110, a(0x7111));
-            renderer->m_maxY = 0;
-            renderer->drawString(BookmarkLabels, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
+            u32 m_maxY = 0;
+            auto e1 = renderer->drawString(BookmarkLabels, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e1.second);
 
-            renderer->drawString(Variables, false, 210, fontsize, fontsize, renderer->a(0xFFFF));
+            auto e2 = renderer->drawString(Variables, false, 210, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e2.second);
 
-            renderer->drawString(Cursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
+            auto e3 = renderer->drawString(Cursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e3.second);
 
-            renderer->drawString(MultiplierStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
+            auto e4 = renderer->drawString(MultiplierStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e4.second);
             // temp_maxY = renderer->m_maxY;
             // if (m_displayed_cheat_lines == m_NUM_cheats)
             // if (m_NUM_cheats < MAX_NUM_cheats)
-            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), (u32)MAX_NUM_cheats);
+            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - m_maxY) / (fontsize + 3), (u32)MAX_NUM_cheats);
 
             // if (m_NUM_cheats > MAX_NUM_cheats) m_NUM_cheats = MAX_NUM_cheats;
         });
@@ -3553,11 +3568,14 @@ class PickCheatsOverlay : public tsl::Gui {
         auto rootFrame = new tsl::elm::OverlayFrame("", "");
         auto Status = new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
             renderer->drawRect(0, 0, tsl::cfg::FramebufferWidth , tsl::cfg::FramebufferHeight, a(0x7111));
-            renderer->m_maxY = 0;
-            renderer->drawString(CheatsLabelsStr, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
-            renderer->drawString(CheatsCursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
-            renderer->drawString(CheatsEnableStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
-            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - renderer->m_maxY) / (fontsize + 3), (u32)MAX_NUM_cheats);
+            u32 m_maxY = 0;
+            auto e1 = renderer->drawString(CheatsLabelsStr, false, 65, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e1.second);
+            auto e2 = renderer->drawString(CheatsCursor, false, 5, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e2.second);
+            auto e3 = renderer->drawString(CheatsEnableStr, false, 25, fontsize, fontsize, renderer->a(0xFFFF));
+            m_maxY = std::max(m_maxY, (u32)fontsize + e3.second);
+            m_NUM_cheats = std::min(m_displayed_cheat_lines + (s32)(tsl::cfg::FramebufferHeight - m_maxY) / (fontsize + 3), (u32)MAX_NUM_cheats);
         });
         rootFrame->setContent(Status);
         return rootFrame;
