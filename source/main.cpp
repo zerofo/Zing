@@ -12,10 +12,10 @@
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
 #define FieldDescriptor uint32_t
 PadState pad;
-// typedef struct {
-//     u32 A = 0, B = 0;                                   ///< UniquePadId
-// } Breeze_state;
-// Breeze_state Bstate = {};
+typedef struct {
+    u32 A = 0, B = 0;                                     ///< UniquePadId
+} Breeze_state;
+Breeze_state Bstate = {};
 
 //Common
 Thread t0;
@@ -31,6 +31,10 @@ bool threadexit = false;
 bool threadexit2 = false;
 bool Atmosphere_present = false;
 uint64_t refreshrate = 1;
+//FPS / display mode
+int TeslaFPS = 50;
+u8 alphabackground = 0x0;
+bool FullMode = false;
 FanController g_ICon;
 
 //Misc2
@@ -283,8 +287,8 @@ void Misc(void *) {
 
         //Temperatures
         if (R_SUCCEEDED(tsCheck)) {
-            tsGetTemperatureMilliC(TsLocation_External, &SOC_temperatureC);
-            tsGetTemperatureMilliC(TsLocation_Internal, &PCB_temperatureC);
+            tsGetTemperatureMilliC(TsLocation_External, &SoC_temperaturemiliC);
+            tsGetTemperatureMilliC(TsLocation_Internal, &PCB_temperaturemiliC);
         }
         if (R_SUCCEEDED(tcCheck)) tcGetSkinTemperatureMilliC(&skin_temperaturemiliC);
 
@@ -482,7 +486,7 @@ class com_FPS : public tsl::Gui {
         ///FPS
         snprintf(FPSavg_c, sizeof FPSavg_c, "%2.1f", FPSavg);
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             EndFPSCounterThread();
             tsl::goBack();
@@ -609,7 +613,7 @@ class FullOverlay : public tsl::Gui {
         snprintf(FPS_compressed_c, sizeof FPS_compressed_c, "%s\n%s", FPS_c, FPSavg_c);
         snprintf(FPS_var_compressed_c, sizeof FPS_var_compressed_c, "%u\n%2.2f", FPS, FPSavg);
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             CloseThreads();
             tsl::goBack();
@@ -1938,7 +1942,7 @@ class MailBoxOverlay : public tsl::Gui {
         else
             snprintf(Variables, sizeof Variables, "%d\n%d\n%d\n%s\n%s", Bstate.A, Bstate.B, TeslaFPS, skin_temperature_c, Rotation_SpeedLevel_c);
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             CloseThreads();
             tsl::goBack();
@@ -2400,7 +2404,7 @@ class BookmarkOverlay : public tsl::Gui {
         // strncat(BookmarkLabels,CheatsLabelsStr, sizeof BookmarkLabels-1);
         // strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         for (auto entry : m_toggle_list) {
             if (((keysHeld | keysDown) == entry.keycode) && (keysDown & entry.keycode)) {
                 dmntchtToggleCheat(entry.cheat_id);
@@ -2530,7 +2534,7 @@ class MiniOverlay : public tsl::Gui {
         else
             snprintf(Variables, sizeof Variables, "%s\n%s\n%s\n%s\n%s", CPU_compressed_c, GPU_Load_c, RAM_var_compressed_c, skin_temperature_c, Rotation_SpeedLevel_c);
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_StickR)) {
             CloseThreads();
             tsl::goBack();
@@ -2644,7 +2648,7 @@ class CustomOverlay : public tsl::Gui {
         snprintf(skin_temperature_c, sizeof skin_temperature_c, "Skin: %2.2f \u00B0C", (float)skin_temperaturemiliC / 1000);
         snprintf(Rotation_SpeedLevel_c, sizeof Rotation_SpeedLevel_c, "Fan: %2.2f%s", Rotation_SpeedLevel_f * 100, "%");
     }
-    virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if ((keysHeld & HidNpadButton_StickL) && (keysHeld & HidNpadButton_RSTICK)) {
             CloseThreads();
             tsl::goBack();
@@ -2856,7 +2860,7 @@ class SetMultiplierOverlay : public tsl::Gui {
         strncat(MultiplierStr,CheatsEnableStr, sizeof MultiplierStr-1);
     };
     // WIP Setting
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         static u32 keycode;
         u32 redirect_index = m_cheat_index + m_cheatlist_offset;
         if (m_outline_mode) redirect_index = m_cheat_outline[redirect_index].index;
@@ -3601,7 +3605,7 @@ class PickCheatsOverlay : public tsl::Gui {
             }
         }
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if (keysDown & HidNpadButton_B) {
             if (cheats_added) {
                 refresh_cheats = true;
@@ -3998,7 +4002,7 @@ class MainMenu : public tsl::Gui { // WIP
         // };
         // Bstate.B += 1;
     }
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, HidTouchState touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchInput, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
         if (keysDown & HidNpadButton_B) {
             dmntchtResumeCheatProcess();
             tsl::goBack();
